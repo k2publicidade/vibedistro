@@ -185,7 +185,7 @@ export default function ReleaseDetails({ params }: { params: { id: string } }) {
                     <div className="bg-vibeorange-600/10 border border-vibeorange-500/20 rounded-xl p-6">
                         <h4 className="text-vibeorange-400 font-bold mb-2">Need to edit?</h4>
                         <p className="text-sm text-gray-300 leading-relaxed mb-4">
-                            You can update metadata and manage tracks as long as the release is in 'Draft' or 'Review' status.
+                            You can update metadata and manage tracks as long as the release is in &apos;Draft&apos; or &apos;Review&apos; status.
                         </p>
                         <button className="text-white text-sm font-bold underline decoration-vibeorange-500 underline-offset-4">
                             Learn more about editing
