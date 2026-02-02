@@ -18,7 +18,7 @@ export function Sidebar() {
     const { t } = useTranslation();
 
     return (
-        <div className="flex flex-col w-64 bg-gray-900 border-r border-gray-800 text-white min-h-screen">
+        <div className="hidden md:flex flex-col w-64 bg-gray-900 border-r border-gray-800 text-white min-h-screen">
             <div className="flex items-center justify-center h-16 border-b border-gray-800">
                 <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-vibeorange-400 to-red-600">
                     VibeDistro
@@ -38,8 +38,8 @@ export function Sidebar() {
                             key={item.key}
                             href={item.href}
                             className={`flex items-center px-4 py-2 text-sm font-medium rounded-md transition-colors ${isActive
-                                    ? "bg-gray-800 text-white"
-                                    : "text-gray-400 hover:bg-gray-800 hover:text-white"
+                                ? "bg-gray-800 text-white"
+                                : "text-gray-400 hover:bg-gray-800 hover:text-white"
                                 }`}
                         >
                             <item.icon className="mr-3 h-5 w-5" />
