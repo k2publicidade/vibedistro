@@ -15,7 +15,7 @@ const navItems = [
     { key: "settings", href: "/settings", icon: Settings, label: "Settings" },
 ];
 
-export function MobileNav({ className }: { className?: string }) {
+export function BottomNavigation({ className }: { className?: string }) {
     const pathname = usePathname();
 
     return (

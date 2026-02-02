@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
 import { Sidebar } from '@/components/Sidebar';
-import { MobileNav } from '@/components/MobileNav';
+import { BottomNavigation } from '@/components/BottomNavigation';
 import { LanguageProvider } from '@/contexts/LanguageContext';
 
 const inter = Inter({ subsets: ['latin'] });
@@ -36,7 +36,7 @@ export default function RootLayout({
 
             {/* Mobile Navigation - Visible only on Mobile */}
             <div className="md:hidden">
-              <MobileNav />
+              <BottomNavigation />
             </div>
           </div>
         </LanguageProvider>
