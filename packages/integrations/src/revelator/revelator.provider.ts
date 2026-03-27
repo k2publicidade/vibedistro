@@ -1,6 +1,7 @@
 import axios, { type AxiosInstance, type AxiosError } from 'axios';
 import axiosRetry from 'axios-retry';
 import { createHmac, timingSafeEqual } from 'crypto';
+
 import type {
   DistributionProvider,
   HealthStatus,
@@ -14,9 +15,27 @@ import type {
   InternalWebhookEventDTO,
 } from '../provider.interface.js';
 import { RevelatorAuthClient } from './auth.client.js';
-import type { RevelatorConfig } from './config.js';
 import { RevelatorAdapter } from './adapter.js';
+import type { RevelatorConfig } from './config.js';
 
+/**
+ * RevelatorProvider — implements DistributionProvider against the real Revelator API.
+ *
+ * Base URL: https://api.revelator.com (sandbox and production use the same host)
+ * Auth: POST /account/loginpartner → Bearer token
+ *
+ * Key endpoints used:
+ *   POST /content/release/save          — create or update release
+ *   GET  /content/release/{id}          — get release details
+ *   POST /distribution/release/addtoqueue — submit release to DSPs
+ *   POST /distribution/release/takedown  — takedown release
+ *   GET  /distribution/release/all       — check distribution status
+ *   POST /content/artist/save           — create or update artist
+ *   POST /content/track/save            — create or update track
+ *   GET  /analytics/consumption/byRelease — stream analytics
+ *   GET  /analytics/revenue/byRelease    — revenue analytics
+ *   GET  /account/user                  — health check
+ */
 export class RevelatorProvider implements DistributionProvider {
   readonly providerName = 'revelator';
   readonly environment: string;
@@ -29,18 +48,32 @@ export class RevelatorProvider implements DistributionProvider {
     private readonly authClient: RevelatorAuthClient,
   ) {
     this.environment = config.environment;
+    this.adapter = new RevelatorAdapter();
 
     this.http = axios.create({
       baseURL: config.baseUrl,
       timeout: config.timeoutMs,
+      headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
     });
 
-    // Attach auth token to every request
+    // Attach Bearer token before every request
     this.http.interceptors.request.use(async (req) => {
       const token = await authClient.getAccessToken();
       req.headers['Authorization'] = `Bearer ${token}`;
-      req.headers['X-Provider-Env'] = config.environment;
       return req;
+    });
+
+    // On 401: refresh token once, then retry
+    this.http.interceptors.response.use(undefined, async (error: AxiosError) => {
+      if (error.response?.status === 401 && error.config && !(error.config as any)._retried) {
+        (error.config as any)._retried = true;
+        await authClient.refresh();
+        const token = await authClient.getAccessToken();
+        error.config.headers = error.config.headers ?? {};
+        error.config.headers['Authorization'] = `Bearer ${token}`;
+        return this.http.request(error.config);
+      }
+      return Promise.reject(error);
     });
 
     // Retry on 429 / 5xx
@@ -52,74 +85,155 @@ export class RevelatorProvider implements DistributionProvider {
         return status === 429 || (status !== undefined && status >= 500);
       },
       onRetry: (retryCount, error) => {
-        console.warn(`[Revelator] Retry ${retryCount} for ${error.config?.url}`);
+        console.warn(`[Revelator] Retry ${retryCount} — ${error.config?.url}`);
       },
     });
-
-    this.adapter = new RevelatorAdapter();
   }
 
   async authenticate(): Promise<void> {
-    this.authClient.invalidate();
-    await this.authClient.getAccessToken();
+    await this.authClient.refresh();
   }
 
   async refreshAccessToken(): Promise<void> {
-    this.authClient.invalidate();
-    await this.authClient.getAccessToken();
+    await this.authClient.refresh();
   }
 
   async healthCheck(): Promise<HealthStatus> {
     const start = Date.now();
     try {
-      await this.http.get('/health');
-      return { healthy: true, latencyMs: Date.now() - start, checkedAt: new Date().toISOString() };
+      // /account/user requires auth and returns user data — good health signal
+      await this.http.get('/account/user');
+      return {
+        healthy: true,
+        latencyMs: Date.now() - start,
+        checkedAt: new Date().toISOString(),
+      };
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Unknown error';
+      const message = err instanceof Error ? err.message : 'Unknown';
       return { healthy: false, error: message, checkedAt: new Date().toISOString() };
     }
   }
 
+  // ─────────────────────────────────────────────────────────────
+  // RELEASE MANAGEMENT
+  // ─────────────────────────────────────────────────────────────
+
+  /**
+   * Creates or updates a release in Revelator.
+   * POST /content/release/save
+   *
+   * For new releases: omit releaseId (Revelator will assign one).
+   * For updates: include releaseId in the payload.
+   */
   async submitRelease(dto: InternalReleaseDTO): Promise<ExternalReleaseRef> {
-    const payload = this.adapter.toRevelatorReleasePayload(dto);
-    const response = await this.http.post('/v1/releases', payload);
-    return this.adapter.fromRevelatorReleaseRef(response.data);
+    const enterpriseId = await this.authClient.getEnterpriseId();
+    const payload = this.adapter.toRevelatorReleasePayload(dto, enterpriseId);
+
+    const response = await this.http.post('/content/release/save', payload);
+    const data = response.data as { releaseId?: number; id?: number };
+
+    const releaseId = data.releaseId ?? data.id;
+    if (!releaseId) {
+      throw new Error('[Revelator] /content/release/save returned no releaseId');
+    }
+
+    // After save, add to distribution queue for configured DSPs
+    if (dto.targetDsps && dto.targetDsps.length > 0) {
+      const storeIds = this.adapter.dspNamesToStoreIds(dto.targetDsps);
+      await this.http.post('/distribution/release/addtoqueue', storeIds, {
+        params: { releaseId, suppressDeliveryEmail: false },
+      });
+    }
+
+    return {
+      externalId: String(releaseId),
+      externalReference: String(releaseId),
+      provider: this.providerName,
+    };
   }
 
   async updateRelease(externalId: string, dto: Partial<InternalReleaseDTO>): Promise<void> {
-    const payload = this.adapter.toRevelatorReleasePayload(dto as InternalReleaseDTO);
-    await this.http.patch(`/v1/releases/${externalId}`, payload);
+    const enterpriseId = await this.authClient.getEnterpriseId();
+    const payload = this.adapter.toRevelatorReleasePayload(
+      { ...dto, internalId: externalId } as InternalReleaseDTO,
+      enterpriseId,
+      Number(externalId),
+    );
+    await this.http.post('/content/release/save', payload);
   }
 
-  async takedownRelease(externalId: string, reason?: string): Promise<void> {
-    await this.http.post(`/v1/releases/${externalId}/takedown`, { reason });
-  }
-
-  async getReleaseStatus(externalId: string): Promise<ExternalStatusDTO> {
-    const response = await this.http.get(`/v1/releases/${externalId}`);
-    return this.adapter.fromRevelatorStatus(response.data);
-  }
-
-  async getAnalytics(params: AnalyticsQueryDTO): Promise<AnalyticsResultDTO> {
-    const response = await this.http.get('/v1/analytics', {
-      params: this.adapter.toRevelatorAnalyticsParams(params),
+  /**
+   * Takedown a release from all or specific DSPs.
+   * POST /distribution/release/takedown?releaseId=X
+   * Body: [] (empty = all stores)
+   */
+  async takedownRelease(externalId: string, _reason?: string): Promise<void> {
+    await this.http.post('/distribution/release/takedown', [], {
+      params: { releaseId: Number(externalId) },
     });
-    return this.adapter.fromRevelatorAnalytics(response.data);
   }
 
+  /**
+   * Get distribution status for a release.
+   * GET /distribution/release/all?options.releaseId=X
+   */
+  async getReleaseStatus(externalId: string): Promise<ExternalStatusDTO> {
+    const response = await this.http.get('/distribution/release/all', {
+      params: { 'options.releaseId': Number(externalId), 'options.pageSize': 1 },
+    });
+
+    const data = response.data as { items?: unknown[] };
+    const item = data.items?.[0] as Record<string, unknown> | undefined;
+
+    return this.adapter.fromRevelatorDistributionStatus(item);
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // ANALYTICS
+  // ─────────────────────────────────────────────────────────────
+
+  /**
+   * Stream consumption analytics.
+   * GET /analytics/consumption/byRelease
+   */
+  async getAnalytics(params: AnalyticsQueryDTO): Promise<AnalyticsResultDTO> {
+    const [consumptionResp, revenueResp] = await Promise.all([
+      this.http.get('/analytics/consumption/byRelease', {
+        params: this.adapter.toRevelatorAnalyticsParams(params),
+      }),
+      this.http.get('/analytics/revenue/byRelease', {
+        params: this.adapter.toRevelatorAnalyticsParams(params),
+      }),
+    ]);
+
+    return this.adapter.fromRevelatorAnalytics(consumptionResp.data, revenueResp.data);
+  }
+
+  /**
+   * Revenue statement for a period.
+   * GET /analytics/revenue/metricsByDate with period filter
+   */
   async getStatement(params: StatementQueryDTO): Promise<StatementResultDTO> {
-    const response = await this.http.get('/v1/royalties/statements', {
+    const response = await this.http.get('/analytics/revenue/metricsByDate', {
       params: this.adapter.toRevelatorStatementParams(params),
     });
-    return this.adapter.fromRevelatorStatement(response.data);
+
+    return this.adapter.fromRevelatorStatement(params.period, response.data);
   }
 
+  // ─────────────────────────────────────────────────────────────
+  // WEBHOOKS
+  // ─────────────────────────────────────────────────────────────
+
   verifyWebhookSignature(payload: Buffer, signature: string): boolean {
+    if (!this.config.webhookSecret) return false;
+
     const expected = createHmac('sha256', this.config.webhookSecret)
       .update(payload)
       .digest('hex');
     const expectedBuf = Buffer.from(`sha256=${expected}`);
     const receivedBuf = Buffer.from(signature);
+
     if (expectedBuf.length !== receivedBuf.length) return false;
     return timingSafeEqual(expectedBuf, receivedBuf);
   }

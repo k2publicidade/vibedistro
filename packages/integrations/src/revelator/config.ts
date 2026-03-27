@@ -1,36 +1,41 @@
-import type { ProviderEnvironment } from '@vibedistro/types';
+export type RevelatorEnvironment = 'sandbox' | 'production';
 
 export interface RevelatorConfig {
+  /** https://api.revelator.com (única URL — sandbox e production usam o mesmo host) */
   baseUrl: string;
-  clientId: string;
-  clientSecret: string;
+  /** UUID da chave de API do parceiro (REVELATOR_PARTNER_API_KEY) */
+  partnerApiKey: string;
+  /** ID do usuário parceiro/admin (REVELATOR_PARTNER_USER_ID) */
+  partnerUserId: string;
+  /** Segredo para verificação de webhook HMAC */
   webhookSecret: string;
-  environment: ProviderEnvironment;
+  /** Identifica o contexto logado para rastreamento de ExternalMapping */
+  environment: RevelatorEnvironment;
+  /** Enterprise ID da conta sandbox/production obtido no login */
+  enterpriseId: number;
+  /** Timeout em ms para chamadas HTTP */
   timeoutMs: number;
   maxRetries: number;
   retryDelayMs: number;
+  /** Flag para habilitar/desabilitar integração sem precisar remover configurações */
   enabled: boolean;
 }
 
-const envBaseUrls: Record<string, string> = {
-  SANDBOX: 'https://sandbox.api.revelator.com',
-  STAGING: 'https://staging.api.revelator.com',
-  PRODUCTION: 'https://api.revelator.com',
-};
-
 export function createRevelatorConfig(env: NodeJS.ProcessEnv = process.env): RevelatorConfig {
-  const environment = (env['PROVIDER_ENV'] ?? 'sandbox').toUpperCase() as ProviderEnvironment;
-  const baseUrl = env['REVELATOR_BASE_URL'] ?? envBaseUrls[environment] ?? envBaseUrls['SANDBOX']!;
+  const environment: RevelatorEnvironment =
+    (env['REVELATOR_ENVIRONMENT'] ?? 'sandbox') === 'production' ? 'production' : 'sandbox';
 
   return {
-    baseUrl,
-    clientId: env['REVELATOR_CLIENT_ID'] ?? '',
-    clientSecret: env['REVELATOR_CLIENT_SECRET'] ?? '',
+    baseUrl: env['REVELATOR_API_URL'] ?? 'https://api.revelator.com',
+    partnerApiKey: env['REVELATOR_PARTNER_API_KEY'] ?? '',
+    partnerUserId: env['REVELATOR_PARTNER_USER_ID'] ?? '',
     webhookSecret: env['REVELATOR_WEBHOOK_SECRET'] ?? '',
     environment,
+    // Will be populated at runtime after login; fallback 0 means config not yet resolved
+    enterpriseId: Number(env['REVELATOR_ENTERPRISE_ID'] ?? 0),
     timeoutMs: Number(env['REVELATOR_TIMEOUT_MS'] ?? 30_000),
     maxRetries: Number(env['REVELATOR_MAX_RETRIES'] ?? 3),
     retryDelayMs: Number(env['REVELATOR_RETRY_DELAY_MS'] ?? 1_000),
-    enabled: env['PROVIDER_ENABLED'] === 'true',
+    enabled: env['REVELATOR_ENABLED'] === 'true',
   };
 }

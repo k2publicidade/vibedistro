@@ -68,8 +68,7 @@ export interface InternalReleaseDTO {
 export interface ExternalReleaseRef {
   externalId: string;
   externalReference?: string;
-  status: string;
-  submittedAt: string;
+  provider?: string;
 }
 
 export interface ExternalStatusDTO {
@@ -121,10 +120,9 @@ export interface StatementResultDTO {
 
 export interface InternalWebhookEventDTO {
   eventType: string;
-  externalId: string;
+  entityId?: string;
   entityType: 'release' | 'track' | 'artist' | 'statement';
-  externalReference?: string;
-  status?: string;
+  data: Record<string, unknown>;
   rawPayload: unknown;
   receivedAt: string;
 }

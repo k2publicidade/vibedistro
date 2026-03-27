@@ -41,8 +41,8 @@ export async function webhookProcessor(
 
     switch (dto.eventType) {
       case 'release.status_changed': {
-        const externalId = dto.entityId;
-        const newStatus = dto.data['status'] as string | undefined;
+        const externalId = dto.entityId ?? dto.data['releaseId'] as string | undefined;
+        const newStatus = (dto.data['releaseStatus'] ?? dto.data['status']) as string | undefined;
 
         if (!externalId || !newStatus) break;
 
@@ -86,7 +86,7 @@ export async function webhookProcessor(
       }
 
       case 'track.takedown_requested': {
-        const externalId = dto.entityId;
+        const externalId = dto.entityId ?? dto.data['trackId'] as string | undefined;
         if (!externalId) break;
 
         const mapping = await prisma.externalMapping.findFirst({
