@@ -1,0 +1,24 @@
+{
+  "name": "@vibedistro/integrations",
+  "version": "0.0.1",
+  "private": true,
+  "main": "./src/index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@vibedistro/config": "workspace:*",
+    "@vibedistro/types": "workspace:*",
+    "axios": "^1.7.0",
+    "axios-retry": "^4.5.0",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.3"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./revelator": "./src/revelator/index.ts"
+  }
+}

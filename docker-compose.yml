@@ -1,0 +1,110 @@
+version: '3.9'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: vibedistro
+      POSTGRES_PASSWORD: vibedistro
+      POSTGRES_DB: vibedistro
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U vibedistro']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://vibedistro:vibedistro@postgres:5432/vibedistro
+      REDIS_URL: redis://redis:6379
+      NODE_ENV: development
+      PORT: 3001
+      JWT_SECRET: ${JWT_SECRET:-changeme-jwt-secret-32chars-minimum}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-changeme-refresh-secret-32chars}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-15m}
+      JWT_REFRESH_EXPIRES_IN: ${JWT_REFRESH_EXPIRES_IN:-7d}
+      STORAGE_PROVIDER: ${STORAGE_PROVIDER:-local}
+      REVELATOR_ENABLED: ${REVELATOR_ENABLED:-false}
+      REVELATOR_ENVIRONMENT: ${REVELATOR_ENVIRONMENT:-sandbox}
+      REVELATOR_API_URL: ${REVELATOR_API_URL:-}
+      REVELATOR_AUTH_URL: ${REVELATOR_AUTH_URL:-}
+      REVELATOR_CLIENT_ID: ${REVELATOR_CLIENT_ID:-}
+      REVELATOR_CLIENT_SECRET: ${REVELATOR_CLIENT_SECRET:-}
+      REVELATOR_WEBHOOK_SECRET: ${REVELATOR_WEBHOOK_SECRET:-}
+      REVELATOR_ACCOUNT_ID: ${REVELATOR_ACCOUNT_ID:-}
+    ports:
+      - '3001:3001'
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    restart: unless-stopped
+    environment:
+      NODE_ENV: development
+      NEXT_PUBLIC_API_URL: http://localhost:3001
+      NEXT_PUBLIC_APP_URL: http://localhost:3000
+      NEXT_PUBLIC_APP_NAME: ${NEXT_PUBLIC_APP_NAME:-VibeDistro}
+      NEXT_PUBLIC_REVELATOR_ENVIRONMENT: ${REVELATOR_ENVIRONMENT:-sandbox}
+    ports:
+      - '3000:3000'
+    depends_on:
+      - api
+
+  worker:
+    build:
+      context: .
+      dockerfile: apps/worker/Dockerfile
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://vibedistro:vibedistro@postgres:5432/vibedistro
+      REDIS_URL: redis://redis:6379
+      NODE_ENV: development
+      REVELATOR_ENABLED: ${REVELATOR_ENABLED:-false}
+      REVELATOR_ENVIRONMENT: ${REVELATOR_ENVIRONMENT:-sandbox}
+      REVELATOR_API_URL: ${REVELATOR_API_URL:-}
+      REVELATOR_AUTH_URL: ${REVELATOR_AUTH_URL:-}
+      REVELATOR_CLIENT_ID: ${REVELATOR_CLIENT_ID:-}
+      REVELATOR_CLIENT_SECRET: ${REVELATOR_CLIENT_SECRET:-}
+      REVELATOR_WEBHOOK_SECRET: ${REVELATOR_WEBHOOK_SECRET:-}
+      REVELATOR_ACCOUNT_ID: ${REVELATOR_ACCOUNT_ID:-}
+      WORKER_SYNC_CONCURRENCY: ${WORKER_SYNC_CONCURRENCY:-5}
+      WORKER_WEBHOOK_CONCURRENCY: ${WORKER_WEBHOOK_CONCURRENCY:-10}
+      WORKER_ANALYTICS_CONCURRENCY: ${WORKER_ANALYTICS_CONCURRENCY:-3}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+  redis_data:

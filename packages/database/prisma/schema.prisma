@@ -1,0 +1,1236 @@
+// VibeDistro — Prisma Schema
+// Version: 1.0.0
+// Generated: 2026-03-27
+
+generator client {
+  provider        = "prisma-client-js"
+  output          = "../src/generated"
+  previewFeatures = ["fullTextSearch"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+// ENUMS
+// ============================================================
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+  PENDING_VERIFICATION
+  INVITED
+}
+
+enum OnboardingStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+  SKIPPED
+}
+
+enum TenantStatus {
+  ACTIVE
+  SUSPENDED
+  TRIAL
+  CHURNED
+  SETUP
+}
+
+enum TenantPlan {
+  FREE
+  STARTER
+  PRO
+  ENTERPRISE
+  WHITE_LABEL
+}
+
+enum ReleaseType {
+  SINGLE
+  EP
+  ALBUM
+  COMPILATION
+  MIXTAPE
+  LIVE
+  REMIX
+  SOUNDTRACK
+}
+
+enum ReleaseStatus {
+  DRAFT
+  PENDING_REVIEW
+  CHANGES_REQUESTED
+  APPROVED
+  SCHEDULED
+  SUBMITTED
+  DELIVERED
+  LIVE
+  TAKEDOWN_REQUESTED
+  TAKEN_DOWN
+  REJECTED
+  ARCHIVED
+}
+
+enum TrackStatus {
+  DRAFT
+  PENDING_REVIEW
+  APPROVED
+  REJECTED
+  ARCHIVED
+}
+
+enum AssetType {
+  AUDIO
+  COVER_ART
+  ARTIST_PHOTO
+  DOCUMENT
+  VIDEO
+}
+
+enum AssetProcessingStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  REJECTED
+}
+
+enum AudioFormat {
+  WAV
+  FLAC
+  MP3
+  AAC
+  AIFF
+}
+
+enum ImageFormat {
+  JPEG
+  PNG
+  WEBP
+}
+
+enum ContributorRole {
+  MAIN_ARTIST
+  FEATURING_ARTIST
+  PRODUCER
+  COMPOSER
+  LYRICIST
+  ARRANGER
+  MIXER
+  MASTERING_ENGINEER
+  RECORDING_ENGINEER
+  REMIXER
+  PERFORMER
+  CONDUCTOR
+  ORCHESTRA
+  CO_WRITER
+  PUBLISHER
+  SUB_PUBLISHER
+}
+
+enum ContractStatus {
+  DRAFT
+  PENDING_SIGNATURE
+  ACTIVE
+  EXPIRED
+  TERMINATED
+  CANCELLED
+}
+
+enum PayoutStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELLED
+  REVERSED
+}
+
+enum RoyaltyStatementStatus {
+  DRAFT
+  PROCESSING
+  AVAILABLE
+  DISPUTED
+  FINAL
+}
+
+enum WebhookEventStatus {
+  RECEIVED
+  PROCESSING
+  PROCESSED
+  FAILED
+  SKIPPED
+  DEAD_LETTERED
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  WAITING_ON_CUSTOMER
+  RESOLVED
+  CLOSED
+  CANCELLED
+}
+
+enum TicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  SKIPPED
+  EXPIRED
+}
+
+enum SyncStatus {
+  PENDING
+  SYNCING
+  SYNCED
+  FAILED
+  STALE
+  NOT_APPLICABLE
+}
+
+enum ProviderEnvironment {
+  SANDBOX
+  STAGING
+  PRODUCTION
+}
+
+enum NotificationType {
+  RELEASE_STATUS_CHANGED
+  TRACK_STATUS_CHANGED
+  APPROVAL_REQUESTED
+  APPROVAL_DECISION
+  ROYALTY_STATEMENT_AVAILABLE
+  PAYOUT_STATUS_CHANGED
+  WEBHOOK_FAILED
+  SYNC_FAILED
+  USER_INVITED
+  USER_JOINED
+  TICKET_UPDATED
+  SYSTEM_ALERT
+}
+
+enum NotificationChannel {
+  IN_APP
+  EMAIL
+  PUSH
+}
+
+enum NotificationStatus {
+  PENDING
+  SENT
+  DELIVERED
+  READ
+  FAILED
+}
+
+enum JobStatus {
+  QUEUED
+  RUNNING
+  COMPLETED
+  FAILED
+  RETRYING
+  CANCELLED
+}
+
+// ============================================================
+// TENANT
+// ============================================================
+
+model Tenant {
+  id          String       @id @default(cuid())
+  slug        String       @unique
+  name        String
+  status      TenantStatus @default(SETUP)
+  plan        TenantPlan   @default(FREE)
+  ownerId     String?
+
+  // Billing
+  maxArtists  Int          @default(5)
+  maxReleases Int          @default(50)
+  maxStorageGb Int         @default(10)
+
+  // Royalty settings
+  platformFeePercent Decimal @default(0) @db.Decimal(5, 4)
+
+  // Timestamps
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  deletedAt   DateTime?
+
+  // Relations
+  branding        TenantBranding?
+  users           UserTenant[]
+  artists         Artist[]
+  releases        Release[]
+  tracks          Track[]
+  royaltyStatements RoyaltyStatement[]
+  payoutRequests  PayoutRequest[]
+  tickets         Ticket[]
+  notifications   Notification[]
+  auditLogs       AuditLog[]
+  integrationConnections IntegrationConnection[]
+  webhookEvents   WebhookEvent[]
+  documents       Document[]
+  approvalFlows   ApprovalFlow[]
+
+  @@index([slug])
+  @@index([status])
+  @@index([deletedAt])
+}
+
+model TenantBranding {
+  id            String   @id @default(cuid())
+  tenantId      String   @unique
+  logoUrl       String?
+  faviconUrl    String?
+  primaryColor  String?  @default("#6366f1")
+  secondaryColor String? @default("#8b5cf6")
+  accentColor   String?  @default("#06b6d4")
+  customDomain  String?  @unique
+  supportEmail  String?
+  supportUrl    String?
+  termsUrl      String?
+  privacyUrl    String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([customDomain])
+}
+
+// ============================================================
+// USER / AUTH
+// ============================================================
+
+model User {
+  id              String          @id @default(cuid())
+  email           String          @unique
+  emailVerifiedAt DateTime?
+  passwordHash    String?
+  firstName       String?
+  lastName        String?
+  avatarUrl       String?
+  status          UserStatus      @default(PENDING_VERIFICATION)
+  onboardingStatus OnboardingStatus @default(NOT_STARTED)
+  mfaEnabled      Boolean         @default(false)
+  mfaSecret       String?
+  lastLoginAt     DateTime?
+  lastLoginIp     String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deletedAt DateTime?
+
+  // Relations
+  tenants         UserTenant[]
+  refreshTokens   RefreshToken[]
+  invitesSent     Invite[]         @relation("InviteSender")
+  inviteUsed      Invite?          @relation("InviteAcceptor")
+  auditLogs       AuditLog[]       @relation("AuditActor")
+  notifications   Notification[]
+  ticketsCreated  Ticket[]         @relation("TicketCreator")
+  ticketMessages  TicketMessage[]
+  approvalSteps   ApprovalStep[]
+  uploadedAssets  Asset[]
+  impersonations  ImpersonationSession[] @relation("Impersonator")
+  impersonatedBy  ImpersonationSession[] @relation("Impersonated")
+
+  @@index([email])
+  @@index([status])
+  @@index([deletedAt])
+}
+
+model UserTenant {
+  id       String @id @default(cuid())
+  userId   String
+  tenantId String
+  roleId   String
+  isOwner  Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  role   Role   @relation(fields: [roleId], references: [id])
+
+  @@unique([userId, tenantId])
+  @@index([tenantId])
+  @@index([userId])
+}
+
+model Role {
+  id          String @id @default(cuid())
+  name        String
+  slug        String
+  description String?
+  tenantId    String? // null = system-wide role
+  isSystem    Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  userTenants  UserTenant[]
+  permissions  RolePermission[]
+
+  @@unique([slug, tenantId])
+  @@index([tenantId])
+}
+
+model Permission {
+  id       String @id @default(cuid())
+  resource String // e.g. "release", "artist", "royalty"
+  action   String // e.g. "create", "read", "update", "delete", "approve"
+  scope    String @default("tenant") // "global" | "tenant" | "own"
+
+  createdAt DateTime @default(now())
+
+  roles RolePermission[]
+
+  @@unique([resource, action, scope])
+  @@index([resource])
+}
+
+model RolePermission {
+  roleId       String
+  permissionId String
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+}
+
+model RefreshToken {
+  id          String   @id @default(cuid())
+  userId      String
+  tokenHash   String   @unique
+  tenantId    String?
+  expiresAt   DateTime
+  revokedAt   DateTime?
+  userAgent   String?
+  ipAddress   String?
+
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([tokenHash])
+  @@index([expiresAt])
+}
+
+model Invite {
+  id         String    @id @default(cuid())
+  tenantId   String
+  email      String
+  roleId     String
+  senderId   String
+  token      String    @unique
+  expiresAt  DateTime
+  acceptedAt DateTime?
+  acceptedBy String?
+
+  createdAt DateTime @default(now())
+
+  sender   User  @relation("InviteSender", fields: [senderId], references: [id])
+  acceptor User? @relation("InviteAcceptor", fields: [acceptedBy], references: [id])
+
+  @@index([email])
+  @@index([token])
+  @@index([tenantId])
+}
+
+model ImpersonationSession {
+  id             String   @id @default(cuid())
+  impersonatorId String
+  impersonatedId String
+  tenantId       String
+  reason         String
+  startedAt      DateTime @default(now())
+  endedAt        DateTime?
+  ipAddress      String?
+
+  impersonator User @relation("Impersonator", fields: [impersonatorId], references: [id])
+  impersonated User @relation("Impersonated", fields: [impersonatedId], references: [id])
+
+  @@index([impersonatorId])
+  @@index([impersonatedId])
+  @@index([tenantId])
+}
+
+// ============================================================
+// ARTIST
+// ============================================================
+
+model Artist {
+  id             String  @id @default(cuid())
+  tenantId       String
+  legalName      String
+  stageName      String
+  bio            String?
+  country        String?
+  city           String?
+  email          String?
+  phone          String?
+  avatarUrl      String?
+  isni           String? // International Standard Name Identifier
+  ipiNumber      String? // Interested Party Information
+  proAffiliation String? // PRO = Performing Rights Organization
+
+  // Social
+  spotifyId      String?
+  appleMusicId   String?
+  youtubeChannelId String?
+  instagramHandle String?
+  twitterHandle  String?
+  facebookUrl    String?
+  websiteUrl     String?
+
+  onboardingStatus OnboardingStatus @default(NOT_STARTED)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deletedAt DateTime?
+  createdBy String?
+  updatedBy String?
+
+  tenant     Tenant       @relation(fields: [tenantId], references: [id])
+  releases   Release[]
+  contributors Contributor[]
+  externalMappings ExternalMapping[]
+  documents  Document[]
+  tags       ArtistTag[]
+
+  @@index([tenantId])
+  @@index([stageName])
+  @@index([deletedAt])
+}
+
+model ArtistTag {
+  artistId String
+  tagId    String
+
+  artist Artist @relation(fields: [artistId], references: [id], onDelete: Cascade)
+  tag    Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([artistId, tagId])
+}
+
+// ============================================================
+// RELEASE / TRACK / CATALOG
+// ============================================================
+
+model Release {
+  id             String        @id @default(cuid())
+  tenantId       String
+  artistId       String
+  title          String
+  version        String?       // e.g. "Deluxe Edition"
+  releaseType    ReleaseType   @default(SINGLE)
+  status         ReleaseStatus @default(DRAFT)
+  upc            String?       @unique
+  catalogNumber  String?
+  releaseDate    DateTime?
+  originalReleaseDate DateTime?
+
+  // Metadata
+  genre          String?
+  subgenre       String?
+  language       String?       @default("en")
+  explicit       Boolean       @default(false)
+
+  // Copyright
+  cLine          String?       // © Sound recording copyright
+  pLine          String?       // ℗ Publishing copyright
+  copyrightYear  Int?
+
+  // Distribution
+  distributionScheduledAt DateTime?
+  distributionDeliveredAt DateTime?
+  liveSince       DateTime?
+
+  // Cover asset
+  coverAssetId   String?       @unique
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deletedAt DateTime?
+  createdBy String?
+  updatedBy String?
+
+  tenant          Tenant            @relation(fields: [tenantId], references: [id])
+  artist          Artist            @relation(fields: [artistId], references: [id])
+  coverAsset      Asset?            @relation("ReleaseCover", fields: [coverAssetId], references: [id])
+  releaseTracks   ReleaseTrack[]
+  dspProfiles     DspProfile[]
+  countryRestrictions CountryRestriction[]
+  externalMappings ExternalMapping[]
+  approvalFlow    ApprovalFlow?
+  tags            ReleaseTag[]
+
+  @@index([tenantId])
+  @@index([artistId])
+  @@index([status])
+  @@index([upc])
+  @@index([deletedAt])
+}
+
+model ReleaseTag {
+  releaseId String
+  tagId     String
+
+  release Release @relation(fields: [releaseId], references: [id], onDelete: Cascade)
+  tag     Tag     @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([releaseId, tagId])
+}
+
+model Track {
+  id           String      @id @default(cuid())
+  tenantId     String
+  title        String
+  version      String?
+  status       TrackStatus @default(DRAFT)
+  isrc         String?     @unique
+  explicit     Boolean     @default(false)
+  language     String?     @default("en")
+  durationMs   Int?        // duration in milliseconds
+  bpm          Int?
+  keySignature String?
+
+  // Copyright
+  cLine        String?
+  pLine        String?
+  copyrightYear Int?
+
+  // Publishing
+  publisherName String?
+  publishingIpi  String?
+
+  // Audio asset
+  audioAssetId String?     @unique
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deletedAt DateTime?
+  createdBy String?
+  updatedBy String?
+
+  tenant       Tenant        @relation(fields: [tenantId], references: [id])
+  audioAsset   Asset?        @relation("TrackAudio", fields: [audioAssetId], references: [id])
+  releaseTracks ReleaseTrack[]
+  contributors  Contributor[]
+  externalMappings ExternalMapping[]
+
+  @@index([tenantId])
+  @@index([isrc])
+  @@index([status])
+  @@index([deletedAt])
+}
+
+model ReleaseTrack {
+  id         String @id @default(cuid())
+  releaseId  String
+  trackId    String
+  trackNumber Int
+  discNumber  Int    @default(1)
+  isBonus    Boolean @default(false)
+
+  release Release @relation(fields: [releaseId], references: [id], onDelete: Cascade)
+  track   Track   @relation(fields: [trackId], references: [id], onDelete: Cascade)
+
+  @@unique([releaseId, trackNumber, discNumber])
+  @@index([releaseId])
+  @@index([trackId])
+}
+
+model Contributor {
+  id        String          @id @default(cuid())
+  trackId   String?
+  artistId  String?
+  tenantId  String
+  name      String          // Display name for this credit
+  role      ContributorRole
+  ipiNumber String?
+  isni      String?
+  isPrimary Boolean         @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  track    Track?  @relation(fields: [trackId], references: [id], onDelete: Cascade)
+  artist   Artist? @relation(fields: [artistId], references: [id])
+  splitLines SplitLine[]
+
+  @@index([trackId])
+  @@index([artistId])
+  @@index([tenantId])
+}
+
+// ============================================================
+// ASSETS
+// ============================================================
+
+model Asset {
+  id               String                @id @default(cuid())
+  tenantId         String
+  uploadedById     String
+  assetType        AssetType
+  processingStatus AssetProcessingStatus @default(PENDING)
+
+  // Storage
+  storageKey       String                @unique // S3 key
+  storageProvider  String                @default("s3")
+  storageBucket    String
+  storageRegion    String?
+  cdnUrl           String?
+
+  // File metadata
+  originalFilename String
+  mimeType         String
+  fileSizeBytes    BigInt
+  checksum         String?               // SHA256
+
+  // Audio-specific
+  audioFormat      AudioFormat?
+  sampleRate       Int?
+  bitDepth         Int?
+  channels         Int?
+  durationMs       Int?
+  loudnessLufs     Decimal?              @db.Decimal(5, 2)
+
+  // Image-specific
+  imageFormat      ImageFormat?
+  widthPx          Int?
+  heightPx         Int?
+  colorProfileIcc  String?
+
+  // Processing
+  processingJobId  String?
+  processingError  String?
+  processedAt      DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deletedAt DateTime?
+
+  uploader         User                  @relation(fields: [uploadedById], references: [id])
+  releaseAsCover   Release?              @relation("ReleaseCover")
+  trackAsAudio     Track?                @relation("TrackAudio")
+
+  @@index([tenantId])
+  @@index([assetType])
+  @@index([processingStatus])
+  @@index([storageKey])
+  @@index([deletedAt])
+}
+
+// ============================================================
+// ROYALTIES / FINANCIAL
+// ============================================================
+
+model SplitContract {
+  id          String         @id @default(cuid())
+  tenantId    String
+  name        String
+  description String?
+  status      ContractStatus @default(DRAFT)
+  effectiveFrom DateTime?
+  effectiveTo   DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deletedAt DateTime?
+  createdBy String?
+
+  splitLines   SplitLine[]
+  documents    Document[]
+
+  @@index([tenantId])
+  @@index([status])
+}
+
+model SplitLine {
+  id              String  @id @default(cuid())
+  splitContractId String
+  contributorId   String
+  percentage      Decimal @db.Decimal(7, 4) // e.g. 33.3333
+  role            String? // override for display
+
+  splitContract SplitContract @relation(fields: [splitContractId], references: [id], onDelete: Cascade)
+  contributor   Contributor   @relation(fields: [contributorId], references: [id])
+
+  @@index([splitContractId])
+  @@index([contributorId])
+}
+
+model Wallet {
+  id           String  @id @default(cuid())
+  tenantId     String
+  artistId     String? @unique
+  userId       String? @unique
+
+  balanceCents BigInt  @default(0) // in smallest currency unit
+  currency     String  @default("USD")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  royaltyEntries RoyaltyEntry[]
+  payoutRequests PayoutRequest[]
+
+  @@index([tenantId])
+}
+
+model RoyaltyStatement {
+  id           String                 @id @default(cuid())
+  tenantId     String
+  period       String                 // e.g. "2025-Q1", "2025-01"
+  status       RoyaltyStatementStatus @default(DRAFT)
+  totalRevenueCents BigInt            @default(0)
+  currency     String                 @default("USD")
+
+  processedAt  DateTime?
+  finalizedAt  DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant       Tenant         @relation(fields: [tenantId], references: [id])
+  entries      RoyaltyEntry[]
+  externalMappings ExternalMapping[]
+
+  @@index([tenantId])
+  @@index([period])
+  @@index([status])
+}
+
+model RoyaltyEntry {
+  id              String   @id @default(cuid())
+  statementId     String
+  walletId        String
+  tenantId        String
+
+  // Source
+  trackIsrc       String?
+  releaseUpc      String?
+  dspName         String?
+  territory       String?
+  period          String
+
+  // Revenue
+  streams         BigInt   @default(0)
+  grossRevenueCents BigInt @default(0)
+  netRevenueCents BigInt   @default(0)
+  platformFeeCents BigInt  @default(0)
+  currency        String   @default("USD")
+
+  createdAt DateTime @default(now())
+
+  statement RoyaltyStatement @relation(fields: [statementId], references: [id])
+  wallet    Wallet           @relation(fields: [walletId], references: [id])
+
+  @@index([statementId])
+  @@index([walletId])
+  @@index([tenantId])
+  @@index([period])
+}
+
+model PayoutRequest {
+  id           String       @id @default(cuid())
+  tenantId     String
+  walletId     String
+  requestedBy  String
+
+  amountCents  BigInt
+  currency     String       @default("USD")
+  status       PayoutStatus @default(PENDING)
+
+  paymentMethod String?
+  paymentReference String?
+  paymentDetails Json?       // encrypted/masked
+
+  processedAt  DateTime?
+  failureReason String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  wallet Wallet @relation(fields: [walletId], references: [id])
+
+  @@index([tenantId])
+  @@index([walletId])
+  @@index([status])
+}
+
+// ============================================================
+// DSP / DISTRIBUTION
+// ============================================================
+
+model DspProfile {
+  id        String   @id @default(cuid())
+  releaseId String
+  dspName   String   // e.g. "spotify", "apple_music", "tidal"
+  enabled   Boolean  @default(true)
+
+  release Release @relation(fields: [releaseId], references: [id], onDelete: Cascade)
+
+  @@unique([releaseId, dspName])
+  @@index([releaseId])
+}
+
+model CountryRestriction {
+  id        String  @id @default(cuid())
+  releaseId String
+  countryCode String // ISO 3166-1 alpha-2
+  restricted Boolean @default(true) // true = blocked, false = exclusive
+
+  release Release @relation(fields: [releaseId], references: [id], onDelete: Cascade)
+
+  @@unique([releaseId, countryCode])
+  @@index([releaseId])
+}
+
+// ============================================================
+// INTEGRATION / PROVIDER LAYER
+// ============================================================
+
+model IntegrationConnection {
+  id          String              @id @default(cuid())
+  tenantId    String
+  provider    String              // "revelator"
+  environment ProviderEnvironment @default(SANDBOX)
+  enabled     Boolean             @default(true)
+
+  // Auth — stored encrypted
+  accessToken  String?
+  refreshToken String?
+  tokenExpiresAt DateTime?
+
+  // Config
+  config      Json?               // provider-specific config
+
+  lastHealthCheckAt DateTime?
+  lastHealthCheckOk Boolean?
+  lastHealthCheckError String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant          Tenant            @relation(fields: [tenantId], references: [id])
+  externalMappings ExternalMapping[]
+
+  @@unique([tenantId, provider, environment])
+  @@index([tenantId])
+  @@index([provider, environment])
+}
+
+model ExternalMapping {
+  id           String              @id @default(cuid())
+  tenantId     String
+  connectionId String?
+
+  // What internal entity this maps to
+  entityType   String              // "release" | "track" | "artist" | "statement"
+  releaseId    String?
+  trackId      String?
+  artistId     String?
+  statementId  String?
+
+  // External side
+  provider     String              // "revelator"
+  environment  ProviderEnvironment
+  externalId   String
+  externalReference String?        // human-readable ref
+  externalUrl  String?
+
+  // Sync state
+  syncStatus   SyncStatus          @default(PENDING)
+  lastSyncedAt DateTime?
+  lastWebhookEventId String?
+  lastErrorCode  String?
+  lastErrorMessage String?
+  idempotencyKey String?           @unique
+  payloadHash   String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  connection  IntegrationConnection? @relation(fields: [connectionId], references: [id])
+  release     Release?               @relation(fields: [releaseId], references: [id])
+  track       Track?                 @relation(fields: [trackId], references: [id])
+  artist      Artist?                @relation(fields: [artistId], references: [id])
+  statement   RoyaltyStatement?      @relation(fields: [statementId], references: [id])
+
+  @@unique([provider, environment, entityType, externalId])
+  @@index([tenantId])
+  @@index([entityType, releaseId])
+  @@index([entityType, trackId])
+  @@index([syncStatus])
+  @@index([provider, environment])
+}
+
+model WebhookEvent {
+  id          String             @id @default(cuid())
+  tenantId    String?
+  provider    String
+  environment ProviderEnvironment
+
+  eventType   String
+  payload     Json
+  rawPayload  Bytes?
+  signature   String?
+
+  status      WebhookEventStatus @default(RECEIVED)
+  attempts    Int                @default(0)
+  maxAttempts Int                @default(5)
+
+  processedAt  DateTime?
+  failureReason String?
+  nextRetryAt   DateTime?
+
+  idempotencyKey String?         @unique
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant Tenant? @relation(fields: [tenantId], references: [id])
+
+  @@index([provider, environment])
+  @@index([eventType])
+  @@index([status])
+  @@index([nextRetryAt])
+  @@index([idempotencyKey])
+}
+
+model JobExecution {
+  id         String    @id @default(cuid())
+  tenantId   String?
+  jobName    String
+  jobQueue   String
+  bullJobId  String?   @unique
+
+  status     JobStatus @default(QUEUED)
+  payload    Json?
+  result     Json?
+  error      String?
+
+  attempts   Int       @default(0)
+  startedAt  DateTime?
+  completedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([jobName])
+  @@index([status])
+  @@index([jobQueue])
+}
+
+// ============================================================
+// WORKFLOW / APPROVALS
+// ============================================================
+
+model ApprovalFlow {
+  id        String         @id @default(cuid())
+  tenantId  String
+  releaseId String?        @unique
+  status    ApprovalStatus @default(PENDING)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  createdBy String?
+
+  tenant  Tenant         @relation(fields: [tenantId], references: [id])
+  release Release?       @relation(fields: [releaseId], references: [id])
+  steps   ApprovalStep[]
+
+  @@index([tenantId])
+  @@index([status])
+}
+
+model ApprovalStep {
+  id             String         @id @default(cuid())
+  flowId         String
+  reviewerId     String?
+  stepOrder      Int
+  stepName       String
+  status         ApprovalStatus @default(PENDING)
+  notes          String?
+  decidedAt      DateTime?
+  expiresAt      DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  flow     ApprovalFlow @relation(fields: [flowId], references: [id], onDelete: Cascade)
+  reviewer User?        @relation(fields: [reviewerId], references: [id])
+
+  @@index([flowId])
+  @@index([reviewerId])
+  @@index([status])
+}
+
+// ============================================================
+// SUPPORT
+// ============================================================
+
+model Ticket {
+  id          String         @id @default(cuid())
+  tenantId    String
+  createdById String
+  assignedToId String?
+
+  subject     String
+  status      TicketStatus   @default(OPEN)
+  priority    TicketPriority @default(MEDIUM)
+
+  resolvedAt  DateTime?
+  closedAt    DateTime?
+  slaDeadline DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deletedAt DateTime?
+
+  tenant     Tenant          @relation(fields: [tenantId], references: [id])
+  createdBy  User            @relation("TicketCreator", fields: [createdById], references: [id])
+  messages   TicketMessage[]
+
+  @@index([tenantId])
+  @@index([status])
+  @@index([createdById])
+}
+
+model TicketMessage {
+  id        String   @id @default(cuid())
+  ticketId  String
+  authorId  String
+  body      String
+  isInternal Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  author User   @relation(fields: [authorId], references: [id])
+
+  @@index([ticketId])
+}
+
+// ============================================================
+// NOTIFICATIONS
+// ============================================================
+
+model Notification {
+  id        String              @id @default(cuid())
+  tenantId  String
+  userId    String
+
+  type      NotificationType
+  channel   NotificationChannel
+  status    NotificationStatus  @default(PENDING)
+
+  title     String
+  body      String
+  data      Json?               // contextual payload
+
+  sentAt     DateTime?
+  deliveredAt DateTime?
+  readAt     DateTime?
+
+  createdAt DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  user   User   @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([tenantId])
+  @@index([status])
+  @@index([readAt])
+}
+
+// ============================================================
+// AUDIT
+// ============================================================
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  tenantId    String?
+  actorId     String?
+
+  action      String   // e.g. "release.created", "user.suspended"
+  resource    String   // e.g. "Release"
+  resourceId  String?
+
+  before      Json?    // snapshot before change
+  after       Json?    // snapshot after change
+
+  ipAddress   String?
+  userAgent   String?
+  requestId   String?  // correlation ID
+
+  createdAt DateTime @default(now())
+
+  tenant Tenant? @relation(fields: [tenantId], references: [id])
+  actor  User?   @relation("AuditActor", fields: [actorId], references: [id])
+
+  @@index([tenantId])
+  @@index([actorId])
+  @@index([resource, resourceId])
+  @@index([createdAt])
+}
+
+// ============================================================
+// MISC
+// ============================================================
+
+model Tag {
+  id    String @id @default(cuid())
+  name  String
+  slug  String @unique
+  color String?
+
+  artists  ArtistTag[]
+  releases ReleaseTag[]
+}
+
+model Document {
+  id          String   @id @default(cuid())
+  tenantId    String
+  artistId    String?
+  contractId  String?
+
+  name        String
+  description String?
+  storageKey  String
+  mimeType    String
+  fileSizeBytes BigInt
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deletedAt DateTime?
+  uploadedBy String?
+
+  tenant   Tenant         @relation(fields: [tenantId], references: [id])
+  artist   Artist?        @relation(fields: [artistId], references: [id])
+  contract SplitContract? @relation(fields: [contractId], references: [id])
+
+  @@index([tenantId])
+  @@index([artistId])
+}

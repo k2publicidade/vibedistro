@@ -1,0 +1,22 @@
+{
+  "name": "@vibedistro/config",
+  "version": "0.0.1",
+  "private": true,
+  "main": "./src/index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.3"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./api": "./src/api.ts",
+    "./web": "./src/web.ts",
+    "./worker": "./src/worker.ts"
+  }
+}

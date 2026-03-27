@@ -1,0 +1,41 @@
+import { Controller, Get, Post, Param, Query } from '@nestjs/common';
+import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { IntegrationsService } from './integrations.service.js';
+import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
+import { RequirePermissions } from '../auth/decorators/require-permissions.decorator.js';
+import type { SessionUser } from '@vibedistro/types';
+
+@ApiTags('integrations')
+@ApiBearerAuth()
+@Controller('integrations')
+export class IntegrationsController {
+  constructor(private readonly integrations: IntegrationsService) {}
+
+  @Get('health')
+  @RequirePermissions('integration:read:tenant')
+  @ApiOperation({ summary: 'Provider health check' })
+  health(@CurrentUser() user: SessionUser) {
+    return this.integrations.getHealth(user.tenantId);
+  }
+
+  @Get('webhooks/failed')
+  @RequirePermissions('integration:read:tenant')
+  @ApiOperation({ summary: 'List failed webhook events' })
+  failedWebhooks(@CurrentUser() user: SessionUser, @Query() query: any) {
+    return this.integrations.listFailedWebhooks(user.tenantId, query);
+  }
+
+  @Post('webhooks/:id/retry')
+  @RequirePermissions('integration:manage:global')
+  @ApiOperation({ summary: 'Manually retry a failed webhook' })
+  retryWebhook(@CurrentUser() user: SessionUser, @Param('id') id: string) {
+    return this.integrations.retryWebhook(user.tenantId, id);
+  }
+
+  @Get('mappings')
+  @RequirePermissions('integration:read:tenant')
+  @ApiOperation({ summary: 'List external ID mappings' })
+  mappings(@CurrentUser() user: SessionUser, @Query() query: any) {
+    return this.integrations.listExternalMappings(user.tenantId, query);
+  }
+}
