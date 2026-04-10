@@ -57,3 +57,26 @@ next-env.d.ts
 
 # BullMQ / jobs
 bull-board/
+
+# Package build artifacts (compiled TS)
+packages/*/src/**/*.js
+packages/*/src/**/*.js.map
+packages/*/src/**/*.d.ts
+packages/*/src/**/*.d.ts.map
+
+# Screenshots
+*.png
+
+# Agent/tool caches
+.agent/
+.playwright-mcp/
+
+# Duplicate monorepo dirs (symlink artifacts)
+apps/api/apps/
+apps/api/packages/
+apps/web/apps/
+apps/web/packages/
+packages/database/packages/
+
+# Docs (generated)
+docs/

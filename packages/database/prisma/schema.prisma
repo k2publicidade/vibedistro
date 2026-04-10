@@ -441,7 +441,7 @@ model Invite {
   token      String    @unique
   expiresAt  DateTime
   acceptedAt DateTime?
-  acceptedBy String?
+  acceptedBy String?   @unique
 
   createdAt DateTime @default(now())
 

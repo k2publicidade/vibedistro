@@ -1,4 +1,4 @@
-import type { AuditFields, ID } from '../common.js';
+import type { AuditFields, ID } from '../common';
 
 export interface Artist extends AuditFields {
   id: ID;

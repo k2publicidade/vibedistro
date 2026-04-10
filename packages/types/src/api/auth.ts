@@ -1,4 +1,4 @@
-import type { AuthTokens, SessionUser } from '../domain/user.js';
+import type { AuthTokens, SessionUser } from '../domain/user';
 
 export interface LoginResponse {
   user: SessionUser;

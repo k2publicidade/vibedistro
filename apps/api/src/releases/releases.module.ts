@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
-import { ReleasesController } from './releases.controller.js';
-import { ReleasesService } from './releases.service.js';
+import { ReleasesController } from './releases.controller';
+import { ReleasesService } from './releases.service';
 
 @Module({
   controllers: [ReleasesController],

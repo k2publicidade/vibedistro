@@ -6,9 +6,23 @@
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
     "outDir": "dist",
-    "rootDir": "src",
     "incremental": true,
-    "tsBuildInfoFile": "dist/.tsbuildinfo"
+    "tsBuildInfoFile": "dist/.tsbuildinfo",
+    "noImplicitOverride": false,
+    "noImplicitAny": false,
+    "strictNullChecks": false,
+    "skipLibCheck": true,
+    "baseUrl": ".",
+    "paths": {
+      "@vibedistro/database": ["../../packages/database/src"],
+      "@vibedistro/config": ["../../packages/config/src"],
+      "@vibedistro/config/api": ["../../packages/config/src/api"],
+      "@vibedistro/config/worker": ["../../packages/config/src/worker"],
+      "@vibedistro/config/web": ["../../packages/config/src/web"],
+      "@vibedistro/types": ["../../packages/types/src"],
+      "@vibedistro/integrations": ["../../packages/integrations/src"],
+      "@vibedistro/integrations/revelator": ["../../packages/integrations/src/revelator"]
+    }
   },
   "include": ["src"],
   "exclude": ["node_modules", "dist", "test"]

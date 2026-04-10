@@ -10,10 +10,10 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@vibedistro/config": "workspace:*",
-    "@vibedistro/database": "workspace:*",
-    "@vibedistro/integrations": "workspace:*",
-    "@vibedistro/types": "workspace:*",
+    "@vibedistro/config": "*",
+    "@vibedistro/database": "*",
+    "@vibedistro/integrations": "*",
+    "@vibedistro/types": "*",
     "bullmq": "^5.8.0",
     "ioredis": "^5.3.2"
   },

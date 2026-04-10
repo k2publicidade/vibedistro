@@ -1,4 +1,4 @@
-import type { Timestamps, ID } from '../common.js';
+import type { Timestamps, ID } from '../common';
 
 export type RoyaltyStatementStatus = 'DRAFT' | 'PROCESSING' | 'AVAILABLE' | 'DISPUTED' | 'FINAL';
 export type PayoutStatus = 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED' | 'CANCELLED' | 'REVERSED';

@@ -8,8 +8,8 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@vibedistro/config": "workspace:*",
-    "@vibedistro/types": "workspace:*",
+    "@vibedistro/config": "*",
+    "@vibedistro/types": "*",
     "axios": "^1.7.0",
     "axios-retry": "^4.5.0",
     "zod": "^3.23.0"

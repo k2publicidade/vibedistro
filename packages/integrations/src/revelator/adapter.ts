@@ -12,7 +12,7 @@ import type {
   StatementQueryDTO,
   StatementResultDTO,
   InternalWebhookEventDTO,
-} from '../provider.interface.js';
+} from '../provider.interface';
 
 // releaseTypeId per Revelator /common/lookup/releasetypes
 const RELEASE_TYPE_MAP: Record<string, number> = {

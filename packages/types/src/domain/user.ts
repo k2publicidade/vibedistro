@@ -1,4 +1,4 @@
-import type { Timestamps, ID } from '../common.js';
+import type { Timestamps, ID } from '../common';
 
 export type UserStatus = 'ACTIVE' | 'INACTIVE' | 'SUSPENDED' | 'PENDING_VERIFICATION' | 'INVITED';
 export type OnboardingStatus = 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETED' | 'SKIPPED';

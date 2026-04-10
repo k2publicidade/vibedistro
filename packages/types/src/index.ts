@@ -1,3 +1,3 @@
-export * from './domain/index.js';
-export * from './api/index.js';
-export * from './common.js';
+export * from './domain/index';
+export * from './api/index';
+export * from './common';

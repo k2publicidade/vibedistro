@@ -82,6 +82,7 @@ export interface ExternalStatusDTO {
 export interface AnalyticsQueryDTO {
   from: string;
   to: string;
+  granularity?: 'day' | 'month';
   externalReleaseId?: string;
   externalTrackId?: string;
   dsp?: string;

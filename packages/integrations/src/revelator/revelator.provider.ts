@@ -13,10 +13,10 @@ import type {
   StatementQueryDTO,
   StatementResultDTO,
   InternalWebhookEventDTO,
-} from '../provider.interface.js';
-import { RevelatorAuthClient } from './auth.client.js';
-import { RevelatorAdapter } from './adapter.js';
-import type { RevelatorConfig } from './config.js';
+} from '../provider.interface';
+import { RevelatorAuthClient } from './auth.client';
+import { RevelatorAdapter } from './adapter';
+import type { RevelatorConfig } from './config';
 
 /**
  * RevelatorProvider — implements DistributionProvider against the real Revelator API.
@@ -69,8 +69,8 @@ export class RevelatorProvider implements DistributionProvider {
         (error.config as any)._retried = true;
         await authClient.refresh();
         const token = await authClient.getAccessToken();
-        error.config.headers = error.config.headers ?? {};
-        error.config.headers['Authorization'] = `Bearer ${token}`;
+        error.config.headers = error.config.headers ?? {} as any;
+        (error.config.headers as Record<string, string>)['Authorization'] = `Bearer ${token}`;
         return this.http.request(error.config);
       }
       return Promise.reject(error);
@@ -219,6 +219,34 @@ export class RevelatorProvider implements DistributionProvider {
     });
 
     return this.adapter.fromRevelatorStatement(params.period, response.data);
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // CONTENT LISTING (for sync)
+  // ─────────────────────────────────────────────────────────────
+
+  async listArtists(pageSize = 100): Promise<Array<Record<string, unknown>>> {
+    const response = await this.http.get('/content/artist/all', {
+      params: { 'options.pageSize': pageSize },
+    });
+    const data = response.data as { items?: unknown[] } | unknown[];
+    return (Array.isArray(data) ? data : (data.items ?? [])) as Array<Record<string, unknown>>;
+  }
+
+  async listReleases(pageSize = 100): Promise<Array<Record<string, unknown>>> {
+    const response = await this.http.get('/content/release/all', {
+      params: { 'options.pageSize': pageSize },
+    });
+    const data = response.data as { items?: unknown[] } | unknown[];
+    return (Array.isArray(data) ? data : (data.items ?? [])) as Array<Record<string, unknown>>;
+  }
+
+  async listTracks(pageSize = 100): Promise<Array<Record<string, unknown>>> {
+    const response = await this.http.get('/content/track/all', {
+      params: { 'options.pageSize': pageSize },
+    });
+    const data = response.data as { items?: unknown[] } | unknown[];
+    return (Array.isArray(data) ? data : (data.items ?? [])) as Array<Record<string, unknown>>;
   }
 
   // ─────────────────────────────────────────────────────────────

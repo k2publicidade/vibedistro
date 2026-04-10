@@ -1,6 +1,6 @@
 import { Injectable, CanActivate, ExecutionContext, ForbiddenException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { IS_PUBLIC_KEY } from '../decorators/public.decorator.js';
+import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 import type { SessionUser } from '@vibedistro/types';
 
 /**

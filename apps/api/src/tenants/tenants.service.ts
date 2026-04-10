@@ -1,12 +1,14 @@
 import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
-import { PrismaService } from '../database/prisma.service.js';
+import { PrismaService } from '../database/prisma.service';
 
 @Injectable()
 export class TenantsService {
   constructor(private readonly prisma: PrismaService) {}
 
   async findAll(query: { page?: number; perPage?: number; search?: string }) {
-    const { page = 1, perPage = 20, search } = query;
+    const { search } = query;
+    const page = Number(query.page) || 1;
+    const perPage = Number(query.perPage) || 20;
     const skip = (page - 1) * perPage;
     const where = {
       deletedAt: null,
@@ -30,6 +32,15 @@ export class TenantsService {
 
   async findBySlug(slug: string) {
     const tenant = await this.prisma.tenant.findFirst({ where: { slug, deletedAt: null }, include: { branding: true } });
+    if (!tenant) throw new NotFoundException('Tenant not found');
+    return tenant;
+  }
+
+  async findCurrent(tenantId: string) {
+    const tenant = await this.prisma.tenant.findFirst({
+      where: { id: tenantId, deletedAt: null },
+      include: { branding: true },
+    });
     if (!tenant) throw new NotFoundException('Tenant not found');
     return tenant;
   }

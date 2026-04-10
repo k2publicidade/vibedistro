@@ -1,4 +1,4 @@
-import type { AuditFields, ID } from '../common.js';
+import type { AuditFields, ID } from '../common';
 
 export type ReleaseType = 'SINGLE' | 'EP' | 'ALBUM' | 'COMPILATION' | 'MIXTAPE' | 'LIVE' | 'REMIX' | 'SOUNDTRACK';
 

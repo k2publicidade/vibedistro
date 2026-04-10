@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-import type { RevelatorConfig } from './config.js';
+import type { RevelatorConfig } from './config';
 
 interface LoginPartnerResponse {
   accessToken: string;

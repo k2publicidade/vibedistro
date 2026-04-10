@@ -2,7 +2,7 @@ import { Injectable, UnauthorizedException, BadRequestException, Logger } from '
 import { JwtService } from '@nestjs/jwt';
 import { compare, hash } from 'bcryptjs';
 import { randomUUID } from 'crypto';
-import { PrismaService } from '../database/prisma.service.js';
+import { PrismaService } from '../database/prisma.service';
 import type { SessionUser, AuthTokens, LoginDto, RegisterDto } from '@vibedistro/types';
 
 interface JwtPayload {

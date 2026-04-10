@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
-import { PrismaService } from '../database/prisma.service.js';
+import { PrismaService } from '../database/prisma.service';
 import type { CreateArtistDto, UpdateArtistDto } from '@vibedistro/types';
 import type { PaginationQuery } from '@vibedistro/types';
 
@@ -8,7 +8,9 @@ export class ArtistsService {
   constructor(private readonly prisma: PrismaService) {}
 
   async findAll(tenantId: string, query: PaginationQuery) {
-    const { page = 1, perPage = 20, search, sortBy = 'stageName', sortOrder = 'asc' } = query;
+    const { search, sortBy = 'stageName', sortOrder = 'asc' } = query;
+    const page = Number(query.page) || 1;
+    const perPage = Number(query.perPage) || 20;
     const skip = (page - 1) * perPage;
 
     const where = {

@@ -3,7 +3,7 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe, Logger } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
-import { AppModule } from './app.module.js';
+import { AppModule } from './app.module';
 import { parseEnv } from '@vibedistro/config';
 import { apiEnvSchema } from '@vibedistro/config/api';
 
@@ -62,7 +62,7 @@ async function bootstrap() {
 
   await app.listen(env.PORT);
   logger.log(`API running on port ${env.PORT} [${env.NODE_ENV}]`);
-  logger.log(`Provider: revelator/${env.PROVIDER_ENV}, enabled=${env.PROVIDER_ENABLED}`);
+  logger.log(`Provider: revelator/${env.REVELATOR_ENVIRONMENT}, enabled=${env.REVELATOR_ENABLED}`);
 }
 
 bootstrap().catch((err) => {

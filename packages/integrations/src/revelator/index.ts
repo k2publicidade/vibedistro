@@ -1,3 +1,3 @@
-export { RevelatorProvider } from './revelator.provider.js';
-export { RevelatorAuthClient } from './auth.client.js';
-export { RevelatorConfig, createRevelatorConfig } from './config.js';
+export { RevelatorProvider } from './revelator.provider';
+export { RevelatorAuthClient } from './auth.client';
+export { RevelatorConfig, createRevelatorConfig } from './config';

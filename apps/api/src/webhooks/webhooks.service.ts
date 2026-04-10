@@ -1,6 +1,6 @@
 import { Injectable, Logger, BadRequestException } from '@nestjs/common';
-import { PrismaService } from '../database/prisma.service.js';
-import { ProviderRegistryService } from '../integrations/provider-registry.service.js';
+import { PrismaService } from '../database/prisma.service';
+import { ProviderRegistryService } from '../integrations/provider-registry.service';
 
 @Injectable()
 export class WebhooksService {

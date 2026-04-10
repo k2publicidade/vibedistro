@@ -1,8 +1,8 @@
 import { Controller, Get, Post, Param, Query } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
-import { IntegrationsService } from './integrations.service.js';
-import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
-import { RequirePermissions } from '../auth/decorators/require-permissions.decorator.js';
+import { IntegrationsService } from './integrations.service';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
 import type { SessionUser } from '@vibedistro/types';
 
 @ApiTags('integrations')
@@ -16,6 +16,20 @@ export class IntegrationsController {
   @ApiOperation({ summary: 'Provider health check' })
   health(@CurrentUser() user: SessionUser) {
     return this.integrations.getHealth(user.tenantId);
+  }
+
+  @Get('status')
+  @RequirePermissions('integration:read:tenant')
+  @ApiOperation({ summary: 'Integration connection status' })
+  status(@CurrentUser() user: SessionUser) {
+    return this.integrations.getStatus(user.tenantId);
+  }
+
+  @Get('sync-history')
+  @RequirePermissions('integration:read:tenant')
+  @ApiOperation({ summary: 'Sync job execution history' })
+  syncHistory(@CurrentUser() user: SessionUser, @Query() query: any) {
+    return this.integrations.getSyncHistory(user.tenantId, query);
   }
 
   @Get('webhooks/failed')

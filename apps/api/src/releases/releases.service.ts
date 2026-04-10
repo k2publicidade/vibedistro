@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
-import { PrismaService } from '../database/prisma.service.js';
+import { PrismaService } from '../database/prisma.service';
 import type { PaginationQuery, ReleaseStatus } from '@vibedistro/types';
 
 const ALLOWED_STATUS_TRANSITIONS: Partial<Record<ReleaseStatus, ReleaseStatus[]>> = {
@@ -19,13 +19,15 @@ export class ReleasesService {
   constructor(private readonly prisma: PrismaService) {}
 
   async findAll(tenantId: string, query: PaginationQuery & { status?: string; artistId?: string }) {
-    const { page = 1, perPage = 20, search, sortBy = 'createdAt', sortOrder = 'desc', status, artistId } = query;
+    const { search, sortBy = 'createdAt', sortOrder = 'desc', status, artistId } = query;
+    const page = Number(query.page) || 1;
+    const perPage = Number(query.perPage) || 20;
     const skip = (page - 1) * perPage;
 
     const where = {
       tenantId,
       deletedAt: null,
-      ...(status && { status }),
+      ...(status && { status: status as ReleaseStatus }),
       ...(artistId && { artistId }),
       ...(search && {
         OR: [

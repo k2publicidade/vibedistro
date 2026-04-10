@@ -3,25 +3,26 @@ import { ConfigModule } from '@nestjs/config';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
 import { TerminusModule } from '@nestjs/terminus';
-import { DatabaseModule } from './database/database.module.js';
-import { AuthModule } from './auth/auth.module.js';
-import { TenantsModule } from './tenants/tenants.module.js';
-import { UsersModule } from './users/users.module.js';
-import { ArtistsModule } from './artists/artists.module.js';
-import { ReleasesModule } from './releases/releases.module.js';
-import { TracksModule } from './tracks/tracks.module.js';
-import { AssetsModule } from './assets/assets.module.js';
-import { RoyaltiesModule } from './royalties/royalties.module.js';
-import { AnalyticsModule } from './analytics/analytics.module.js';
-import { TicketsModule } from './tickets/tickets.module.js';
-import { NotificationsModule } from './notifications/notifications.module.js';
-import { AuditModule } from './audit/audit.module.js';
-import { IntegrationsModule } from './integrations/integrations.module.js';
-import { WebhooksModule } from './webhooks/webhooks.module.js';
-import { HealthModule } from './health/health.module.js';
-import { JwtAuthGuard } from './auth/guards/jwt-auth.guard.js';
-import { RbacGuard } from './auth/guards/rbac.guard.js';
-import { TenantGuard } from './auth/guards/tenant.guard.js';
+import { DatabaseModule } from './database/database.module';
+import { AuthModule } from './auth/auth.module';
+import { TenantsModule } from './tenants/tenants.module';
+import { UsersModule } from './users/users.module';
+import { ArtistsModule } from './artists/artists.module';
+import { ReleasesModule } from './releases/releases.module';
+import { TracksModule } from './tracks/tracks.module';
+import { AssetsModule } from './assets/assets.module';
+import { RoyaltiesModule } from './royalties/royalties.module';
+import { AnalyticsModule } from './analytics/analytics.module';
+import { TicketsModule } from './tickets/tickets.module';
+import { NotificationsModule } from './notifications/notifications.module';
+import { AuditModule } from './audit/audit.module';
+import { IntegrationsModule } from './integrations/integrations.module';
+import { WebhooksModule } from './webhooks/webhooks.module';
+import { HealthModule } from './health/health.module';
+import { SearchModule } from './search/search.module';
+import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
+import { RbacGuard } from './auth/guards/rbac.guard';
+import { TenantGuard } from './auth/guards/tenant.guard';
 
 @Module({
   imports: [
@@ -44,6 +45,7 @@ import { TenantGuard } from './auth/guards/tenant.guard.js';
     IntegrationsModule,
     WebhooksModule,
     HealthModule,
+    SearchModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },

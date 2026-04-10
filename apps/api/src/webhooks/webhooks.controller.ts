@@ -1,7 +1,7 @@
 import { Controller, Post, Headers, Req, RawBodyRequest, HttpCode, HttpStatus, Param } from '@nestjs/common';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
-import { Public } from '../auth/decorators/public.decorator.js';
-import { WebhooksService } from './webhooks.service.js';
+import { Public } from '../auth/decorators/public.decorator';
+import { WebhooksService } from './webhooks.service';
 import type { Request } from 'express';
 
 @ApiTags('webhooks')

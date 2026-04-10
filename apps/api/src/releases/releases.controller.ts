@@ -3,9 +3,9 @@ import {
   Param, Body, Query, HttpCode, HttpStatus,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
-import { ReleasesService } from './releases.service.js';
-import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
-import { RequirePermissions } from '../auth/decorators/require-permissions.decorator.js';
+import { ReleasesService } from './releases.service';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
 import type { SessionUser, ReleaseStatus } from '@vibedistro/types';
 
 @ApiTags('releases')

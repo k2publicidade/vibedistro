@@ -1,4 +1,4 @@
-import type { AuditFields, ID } from '../common.js';
+import type { AuditFields, ID } from '../common';
 
 export type TrackStatus = 'DRAFT' | 'PENDING_REVIEW' | 'APPROVED' | 'REJECTED' | 'ARCHIVED';
 

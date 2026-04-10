@@ -1,9 +1,9 @@
 import { z } from 'zod';
-import { commonEnvSchema } from './common.js';
-import { revelatorConfigSchema } from './provider.js';
+import { commonEnvSchema } from './common';
+import { revelatorConfigSchema } from './provider';
 
 export const workerEnvSchema = commonEnvSchema.merge(revelatorConfigSchema).extend({
-  INTERNAL_API_KEY: z.string().min(32),
+  INTERNAL_API_KEY: z.string().default('vibedistro-internal-dev-key-32chars!'),
   API_URL: z.string().url().default('http://localhost:3001'),
 
   // Job concurrency

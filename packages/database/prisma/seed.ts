@@ -2,6 +2,9 @@ import { PrismaClient } from '../src/generated';
 
 const prisma = new PrismaClient();
 
+// Pre-computed bcrypt hash for "admin123" (10 rounds)
+const ADMIN_PASSWORD_HASH = '$2a$10$/QTk3kQBPjBSQykouGDf3Ot0KsZcvF0sY0pemNqaV92ERHqaaIMYC';
+
 async function main() {
   console.log('🌱 Seeding database...');
 
@@ -55,54 +58,17 @@ async function main() {
     });
   }
 
-  // System roles
-  const superAdminRole = await prisma.role.upsert({
-    where: { slug_tenantId: { slug: 'super_admin', tenantId: null } },
-    create: {
-      name: 'Super Admin',
-      slug: 'super_admin',
-      isSystem: true,
-      tenantId: null,
-      description: 'Full platform access',
-    },
-    update: {},
-  });
+  // System roles — use findFirst + create because tenantId is nullable (upsert doesn't support null in compound unique)
+  async function upsertSystemRole(slug: string, name: string, description: string) {
+    const existing = await prisma.role.findFirst({ where: { slug, tenantId: null } });
+    if (existing) return existing;
+    return prisma.role.create({ data: { name, slug, isSystem: true, tenantId: null, description } });
+  }
 
-  const labelOwnerRole = await prisma.role.upsert({
-    where: { slug_tenantId: { slug: 'label_owner', tenantId: null } },
-    create: {
-      name: 'Label Owner',
-      slug: 'label_owner',
-      isSystem: true,
-      tenantId: null,
-      description: 'Full access to own tenant',
-    },
-    update: {},
-  });
-
-  const catalogManagerRole = await prisma.role.upsert({
-    where: { slug_tenantId: { slug: 'catalog_manager', tenantId: null } },
-    create: {
-      name: 'Catalog Manager',
-      slug: 'catalog_manager',
-      isSystem: true,
-      tenantId: null,
-      description: 'Manages releases and tracks',
-    },
-    update: {},
-  });
-
-  const artistRole = await prisma.role.upsert({
-    where: { slug_tenantId: { slug: 'artist', tenantId: null } },
-    create: {
-      name: 'Artist',
-      slug: 'artist',
-      isSystem: true,
-      tenantId: null,
-      description: 'Artist with read access to own content',
-    },
-    update: {},
-  });
+  const superAdminRole = await upsertSystemRole('super_admin', 'Super Admin', 'Full platform access');
+  const labelOwnerRole = await upsertSystemRole('label_owner', 'Label Owner', 'Full access to own tenant');
+  const catalogManagerRole = await upsertSystemRole('catalog_manager', 'Catalog Manager', 'Manages releases and tracks');
+  const artistRole = await upsertSystemRole('artist', 'Artist', 'Artist with read access to own content');
 
   // Assign all permissions to super_admin
   const allPermissions = await prisma.permission.findMany();
@@ -114,9 +80,98 @@ async function main() {
     });
   }
 
+  // Assign tenant-scoped permissions to label_owner
+  const tenantPermissions = allPermissions.filter((p) => p.scope === 'tenant');
+  for (const perm of tenantPermissions) {
+    await prisma.rolePermission.upsert({
+      where: { roleId_permissionId: { roleId: labelOwnerRole.id, permissionId: perm.id } },
+      create: { roleId: labelOwnerRole.id, permissionId: perm.id },
+      update: {},
+    });
+  }
+
+  // Create default tenant
+  const tenant = await prisma.tenant.upsert({
+    where: { slug: 'vibedistro-sandbox' },
+    create: {
+      slug: 'vibedistro-sandbox',
+      name: 'Vibe Distro Sandbox',
+      status: 'ACTIVE',
+      plan: 'PRO',
+      maxArtists: 100,
+      maxReleases: 500,
+      maxStorageGb: 50,
+    },
+    update: {},
+  });
+
+  // Create admin user (password: admin123)
+  const adminUser = await prisma.user.upsert({
+    where: { email: 'admin@vibedistro.com' },
+    create: {
+      email: 'admin@vibedistro.com',
+      passwordHash: ADMIN_PASSWORD_HASH,
+      firstName: 'Admin',
+      lastName: 'VibeDistro',
+      status: 'ACTIVE',
+      emailVerifiedAt: new Date(),
+      onboardingStatus: 'COMPLETED',
+    },
+    update: {},
+  });
+
+  // Link admin to tenant with super_admin role
+  await prisma.userTenant.upsert({
+    where: { userId_tenantId: { userId: adminUser.id, tenantId: tenant.id } },
+    create: {
+      userId: adminUser.id,
+      tenantId: tenant.id,
+      roleId: superAdminRole.id,
+      isOwner: true,
+    },
+    update: {},
+  });
+
+  // Create Revelator integration connection
+  await prisma.integrationConnection.upsert({
+    where: {
+      tenantId_provider_environment: {
+        tenantId: tenant.id,
+        provider: 'revelator',
+        environment: 'SANDBOX',
+      },
+    },
+    create: {
+      tenantId: tenant.id,
+      provider: 'revelator',
+      environment: 'SANDBOX',
+      enabled: true,
+      config: {
+        enterpriseId: 893945,
+        partnerApiKey: '53ad6a23-5436-4461-a523-0d3b90b82701',
+      },
+    },
+    update: {},
+  });
+
+  // Create tenant branding
+  await prisma.tenantBranding.upsert({
+    where: { tenantId: tenant.id },
+    create: {
+      tenantId: tenant.id,
+      primaryColor: '#6366f1',
+      secondaryColor: '#8b5cf6',
+      accentColor: '#06b6d4',
+      supportEmail: 'suporte@vibedistro.com',
+    },
+    update: {},
+  });
+
   console.log('✅ Seed complete');
   console.log(`  Permissions: ${allPermissions.length}`);
   console.log(`  Roles: super_admin, label_owner, catalog_manager, artist`);
+  console.log(`  Tenant: ${tenant.slug} (${tenant.id})`);
+  console.log(`  Admin: admin@vibedistro.com / admin123`);
 }
 
 main()

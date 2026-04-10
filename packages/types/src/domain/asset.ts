@@ -1,4 +1,4 @@
-import type { Timestamps, ID } from '../common.js';
+import type { Timestamps, ID } from '../common';
 
 export type AssetType = 'AUDIO' | 'COVER_ART' | 'ARTIST_PHOTO' | 'DOCUMENT' | 'VIDEO';
 export type AssetProcessingStatus = 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED' | 'REJECTED';

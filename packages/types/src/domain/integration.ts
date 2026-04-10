@@ -1,4 +1,4 @@
-import type { Timestamps, ID } from '../common.js';
+import type { Timestamps, ID } from '../common';
 
 export type SyncStatus = 'PENDING' | 'SYNCING' | 'SYNCED' | 'FAILED' | 'STALE' | 'NOT_APPLICABLE';
 export type ProviderEnvironment = 'SANDBOX' | 'STAGING' | 'PRODUCTION';

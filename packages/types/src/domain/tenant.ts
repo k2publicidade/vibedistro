@@ -1,4 +1,4 @@
-import type { AuditFields, ID } from '../common.js';
+import type { AuditFields, ID } from '../common';
 
 export type TenantStatus = 'ACTIVE' | 'SUSPENDED' | 'TRIAL' | 'CHURNED' | 'SETUP';
 export type TenantPlan = 'FREE' | 'STARTER' | 'PRO' | 'ENTERPRISE' | 'WHITE_LABEL';
