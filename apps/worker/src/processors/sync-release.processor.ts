@@ -78,7 +78,7 @@ export async function syncReleaseProcessor(
       ipiNumber: release.artist.ipiNumber ?? undefined,
     },
     coverStorageKey: release.coverAsset?.storageKey ?? '',
-    tracks: release.releaseTracks.map((rt) => ({
+    tracks: release.releaseTracks.map((rt: any) => ({
       internalId: rt.track.id,
       title: rt.track.title,
       version: rt.track.version ?? undefined,
@@ -91,14 +91,14 @@ export async function syncReleaseProcessor(
       pLine: rt.track.pLine ?? undefined,
       copyrightYear: rt.track.copyrightYear ?? undefined,
       audioStorageKey: rt.track.audioAsset?.storageKey ?? '',
-      contributors: rt.track.contributors.map((c) => ({
+      contributors: rt.track.contributors.map((c: any) => ({
         name: c.name,
         role: c.role,
         ipiNumber: c.ipiNumber ?? undefined,
       })),
     })),
-    targetDsps: release.dspProfiles.filter((d) => d.enabled).map((d) => d.dspName),
-    countryRestrictions: release.countryRestrictions.map((cr) => ({
+    targetDsps: release.dspProfiles.filter((d: any) => d.enabled).map((d: any) => d.dspName),
+    countryRestrictions: release.countryRestrictions.map((cr: any) => ({
       country: cr.countryCode,
       restricted: cr.restricted,
     })),

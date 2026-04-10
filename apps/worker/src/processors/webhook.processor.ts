@@ -96,7 +96,7 @@ export async function webhookProcessor(
         if (mapping?.releaseId) {
           await prisma.release.update({
             where: { id: mapping.releaseId },
-            data: { status: 'TAKEDOWN' },
+            data: { status: 'TAKEN_DOWN' },
           });
           console.log(`[webhook] Takedown applied to release ${mapping.releaseId}`);
         }
@@ -119,8 +119,8 @@ export async function webhookProcessor(
       where: { id: webhookEventId },
       data: {
         status: 'FAILED',
-        errorMessage: message,
-        retryCount: { increment: 1 },
+        failureReason: message,
+        attempts: { increment: 1 },
       },
     });
 

@@ -89,7 +89,7 @@ export async function analyticsProcessor(
         where: { id: existing.id },
         data: {
           totalRevenueCents: BigInt(result.totalRevenueCents),
-          status: 'FINALIZED',
+          status: 'FINAL',
           finalizedAt: new Date(),
         },
       });
@@ -100,7 +100,7 @@ export async function analyticsProcessor(
           period: statementPeriod,
           currency: result.currency,
           totalRevenueCents: BigInt(result.totalRevenueCents),
-          status: 'FINALIZED',
+          status: 'FINAL',
           finalizedAt: new Date(),
         },
       });
