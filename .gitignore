@@ -70,6 +70,9 @@ packages/*/src/**/*.d.ts.map
 # Agent/tool caches
 .agent/
 .playwright-mcp/
+.claude/
+AppData/
+vibedistro/
 
 # Duplicate monorepo dirs (symlink artifacts)
 apps/api/apps/

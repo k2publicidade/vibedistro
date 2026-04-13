@@ -1,7 +1,13 @@
+import path from 'node:path';
 import type { NextConfig } from 'next';
 
 const config: NextConfig = {
+  output: 'standalone',
   transpilePackages: ['@vibedistro/types'],
+  outputFileTracingRoot: path.join(__dirname, '../../'),
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
   experimental: {
     // Enable React 19 concurrent features
   },

@@ -1,0 +1,11 @@
+node_modules
+.next
+dist
+.turbo
+*.md
+*.png
+*.jpg
+.git
+.env*
+.vscode
+uploads
