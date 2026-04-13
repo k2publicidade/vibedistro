@@ -31,11 +31,18 @@ export class RoyaltiesService {
     const pendingCents = pendingStatements.reduce((sum, s) => sum + Number(s.totalRevenueCents), 0);
     const paidCents = finalStatements.reduce((sum, s) => sum + Number(s.totalRevenueCents), 0);
 
+    const grossRevenue = Number(totals._sum.grossRevenueCents ?? 0);
+    const netRevenue = Number(totals._sum.netRevenueCents ?? 0);
+
     return {
-      grossRevenueCents: Number(totals._sum.grossRevenueCents ?? 0),
-      netRevenueCents: Number(totals._sum.netRevenueCents ?? 0),
-      pendingCents,
-      paidCents,
+      grossRevenue,
+      netRevenue,
+      pending: pendingCents,
+      paid: paidCents,
+      deltas: {
+        grossRevenue: 0,
+        netRevenue: 0,
+      },
       period: period ?? 'all',
     };
   }
@@ -181,15 +188,18 @@ export class RoyaltiesService {
       grouped.set(artist.id, cur);
     }
 
+    const totalGross = Array.from(grouped.values()).reduce((s, d) => s + Number(d.grossCents), 0);
+
     const data = Array.from(grouped.entries())
       .map(([artistId, d]) => ({
-        artistId,
-        stageName: d.stageName,
+        artist: { id: artistId, stageName: d.stageName, avatarUrl: null },
+        releases: 0,
+        gross: Number(d.grossCents),
+        net: Number(d.netCents),
         streams: Number(d.streams),
-        grossRevenueCents: Number(d.grossCents),
-        netRevenueCents: Number(d.netCents),
+        percentage: totalGross > 0 ? (Number(d.grossCents) / totalGross) * 100 : 0,
       }))
-      .sort((a, b) => b.grossRevenueCents - a.grossRevenueCents);
+      .sort((a, b) => b.gross - a.gross);
 
     return { data };
   }
@@ -212,14 +222,17 @@ export class RoyaltiesService {
       grouped.set(key, cur);
     }
 
+    const totalGross = Array.from(grouped.values()).reduce((s, d) => s + Number(d.grossCents), 0);
+
     const data = Array.from(grouped.entries())
       .map(([platform, d]) => ({
         platform,
         streams: Number(d.streams),
-        grossRevenueCents: Number(d.grossCents),
-        netRevenueCents: Number(d.netCents),
+        total: Number(d.grossCents),
+        net: Number(d.netCents),
+        percentage: totalGross > 0 ? (Number(d.grossCents) / totalGross) * 100 : 0,
       }))
-      .sort((a, b) => b.grossRevenueCents - a.grossRevenueCents);
+      .sort((a, b) => b.total - a.total);
 
     return { data };
   }

@@ -135,7 +135,7 @@ export default function AuditPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Todas acoes</SelectItem>
-              {(actions.data ?? []).map((a) => (
+              {(Array.isArray(actions.data) ? actions.data : ((actions.data as any)?.data ?? [])).map((a: string) => (
                 <SelectItem key={a} value={a}>
                   {a}
                 </SelectItem>

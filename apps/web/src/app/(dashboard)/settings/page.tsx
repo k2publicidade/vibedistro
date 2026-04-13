@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import {
   Settings,
   Building2,
@@ -11,12 +11,15 @@ import {
   Copy,
   Eye,
   EyeOff,
+  Loader2,
 } from 'lucide-react';
 import { cn } from '@/lib/cn';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { useCurrentTenant, useUpdateCurrentTenant } from '@/lib/hooks/use-tenant';
+import { toast } from 'sonner';
 
 // ---- Page ----
 
@@ -24,26 +27,72 @@ export default function SettingsPage() {
   const [showApiKey, setShowApiKey] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  // Placeholder tenant data — will be replaced with real API call
-  const tenant = {
-    name: 'VibeDist Label',
-    slug: 'vibedist-label',
-    plan: 'PRO',
-    maxArtists: 100,
-    maxReleases: 500,
-    maxStorageGb: 50,
-    platformFeePercent: 15,
-    defaultLanguage: 'pt-BR',
-    defaultTerritory: 'BR',
-    apiKey: 'vd_live_sk_1234567890abcdef',
-    webhookUrl: '',
-  };
+  const { data: tenant, isLoading } = useCurrentTenant();
+  const updateTenant = useUpdateCurrentTenant();
+
+  // Refs for form inputs
+  const nameRef = useRef<HTMLInputElement>(null);
+  const feeRef = useRef<HTMLInputElement>(null);
+  const langRef = useRef<HTMLInputElement>(null);
+  const territoryRef = useRef<HTMLInputElement>(null);
+  const webhookRef = useRef<HTMLInputElement>(null);
 
   const handleCopyApiKey = () => {
+    if (!tenant?.apiKey) return;
     navigator.clipboard.writeText(tenant.apiKey);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
+
+  const handleSaveGeneral = async () => {
+    if (!tenant) return;
+    await updateTenant.mutateAsync({
+      id: tenant.id,
+      name: nameRef.current?.value || tenant.name,
+    });
+    toast.success('Configuracoes salvas');
+  };
+
+  const handleSaveDistribution = async () => {
+    if (!tenant) return;
+    await updateTenant.mutateAsync({
+      id: tenant.id,
+      platformFeePercent: Number(feeRef.current?.value) || tenant.platformFeePercent,
+      defaultLanguage: langRef.current?.value || tenant.defaultLanguage,
+      defaultTerritory: territoryRef.current?.value || tenant.defaultTerritory,
+    });
+    toast.success('Configuracoes salvas');
+  };
+
+  const handleSaveApi = async () => {
+    if (!tenant) return;
+    await updateTenant.mutateAsync({
+      id: tenant.id,
+      webhookUrl: webhookRef.current?.value || '',
+    });
+    toast.success('Configuracoes salvas');
+  };
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <Skeleton className="h-8 w-48" />
+          <Skeleton className="h-4 w-72 mt-2" />
+        </div>
+        <Skeleton className="h-10 w-80" />
+        <Skeleton className="h-64 w-full rounded-xl" />
+      </div>
+    );
+  }
+
+  if (!tenant) {
+    return (
+      <div className="text-center py-12 text-muted-foreground">
+        Nao foi possivel carregar as configuracoes do tenant.
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -84,6 +133,7 @@ export default function SettingsPage() {
                   <div className="flex items-center gap-2.5 px-3 py-2 rounded-lg bg-secondary/60 border border-border/30 focus-within:border-primary/30 transition-all">
                     <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
                     <input
+                      ref={nameRef}
                       type="text"
                       defaultValue={tenant.name}
                       className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/50"
@@ -121,8 +171,8 @@ export default function SettingsPage() {
             </div>
 
             <div className="flex justify-end pt-4 border-t border-border/50">
-              <Button className="gap-2 glow-orange">
-                <Save className="h-4 w-4" />
+              <Button className="gap-2 glow-orange" onClick={handleSaveGeneral} disabled={updateTenant.isPending}>
+                {updateTenant.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                 Salvar Alteracoes
               </Button>
             </div>
@@ -141,6 +191,7 @@ export default function SettingsPage() {
                   </label>
                   <div className="flex items-center gap-2.5 px-3 py-2 rounded-lg bg-secondary/60 border border-border/30 focus-within:border-primary/30 transition-all">
                     <input
+                      ref={feeRef}
                       type="number"
                       defaultValue={tenant.platformFeePercent}
                       min={0}
@@ -158,6 +209,7 @@ export default function SettingsPage() {
                   <div className="flex items-center gap-2.5 px-3 py-2 rounded-lg bg-secondary/60 border border-border/30 focus-within:border-primary/30 transition-all">
                     <Globe className="h-3.5 w-3.5 text-muted-foreground" />
                     <input
+                      ref={langRef}
                       type="text"
                       defaultValue={tenant.defaultLanguage}
                       className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/50"
@@ -172,6 +224,7 @@ export default function SettingsPage() {
                   <div className="flex items-center gap-2.5 px-3 py-2 rounded-lg bg-secondary/60 border border-border/30 focus-within:border-primary/30 transition-all">
                     <Globe className="h-3.5 w-3.5 text-muted-foreground" />
                     <input
+                      ref={territoryRef}
                       type="text"
                       defaultValue={tenant.defaultTerritory}
                       className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/50"
@@ -200,8 +253,8 @@ export default function SettingsPage() {
             </div>
 
             <div className="flex justify-end pt-4 border-t border-border/50">
-              <Button className="gap-2 glow-orange">
-                <Save className="h-4 w-4" />
+              <Button className="gap-2 glow-orange" onClick={handleSaveDistribution} disabled={updateTenant.isPending}>
+                {updateTenant.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                 Salvar Alteracoes
               </Button>
             </div>
@@ -217,7 +270,7 @@ export default function SettingsPage() {
                 <div className="flex-1 flex items-center gap-2.5 px-3 py-2 rounded-lg bg-secondary/60 border border-border/30">
                   <Key className="h-3.5 w-3.5 text-muted-foreground" />
                   <span className="flex-1 text-sm font-mono text-muted-foreground">
-                    {showApiKey ? tenant.apiKey : '••••••••••••••••••••••'}
+                    {showApiKey ? (tenant.apiKey ?? '—') : '••••••••••••••••••••••'}
                   </span>
                 </div>
                 <Button
@@ -254,9 +307,10 @@ export default function SettingsPage() {
                 <div className="flex items-center gap-2.5 px-3 py-2 rounded-lg bg-secondary/60 border border-border/30 focus-within:border-primary/30 transition-all">
                   <Globe className="h-3.5 w-3.5 text-muted-foreground" />
                   <input
+                    ref={webhookRef}
                     type="url"
                     placeholder="https://seu-servidor.com/webhooks/vibedist"
-                    defaultValue={tenant.webhookUrl}
+                    defaultValue={tenant.webhookUrl ?? ''}
                     className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/50"
                   />
                 </div>
@@ -268,8 +322,8 @@ export default function SettingsPage() {
             </div>
 
             <div className="flex justify-end pt-4 border-t border-border/50">
-              <Button className="gap-2 glow-orange">
-                <Save className="h-4 w-4" />
+              <Button className="gap-2 glow-orange" onClick={handleSaveApi} disabled={updateTenant.isPending}>
+                {updateTenant.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                 Salvar Alteracoes
               </Button>
             </div>

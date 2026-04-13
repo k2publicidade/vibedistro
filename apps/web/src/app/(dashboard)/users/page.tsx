@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   Users as UsersIcon,
   Plus,
@@ -33,7 +33,7 @@ import {
   useCancelInvite,
   useUpdateUserRole,
 } from '@/lib/hooks/use-users';
-import type { UserStatus } from '@/lib/types';
+import type { UserStatus, Invite } from '@/lib/types';
 
 // ---- Helpers ----
 
@@ -53,12 +53,10 @@ function getInitials(firstName: string | null, lastName: string | null, email: s
 
 function useDebounce(value: string, delay: number): string {
   const [debounced, setDebounced] = useState(value);
-  import('react').then(({ useMemo: _useMemo }) => {});
-  // Simple inline debounce
-  useState(() => {
+  React.useEffect(() => {
     const handler = setTimeout(() => setDebounced(value), delay);
     return () => clearTimeout(handler);
-  });
+  }, [value, delay]);
   return debounced;
 }
 
@@ -78,7 +76,8 @@ export default function UsersPage() {
 
   const usersData = users.data?.data ?? [];
   const usersMeta = users.data?.meta;
-  const invitesData = invites.data ?? [];
+  const invitesRaw = invites.data as any;
+  const invitesData: Invite[] = Array.isArray(invitesRaw) ? invitesRaw : (invitesRaw?.data ?? []);
 
   const filteredUsers = searchInput
     ? usersData.filter(
