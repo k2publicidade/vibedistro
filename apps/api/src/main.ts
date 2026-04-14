@@ -17,8 +17,20 @@ async function bootstrap() {
 
   // Security
   app.use(helmet());
+  const allowedOrigins = (process.env['ALLOWED_ORIGINS'] ?? 'http://localhost:3000')
+    .split(',')
+    .map((o) => o.trim())
+    .filter(Boolean);
   app.enableCors({
-    origin: process.env['WEB_URL'] ?? 'http://localhost:3000',
+    origin: (origin, callback) => {
+      if (!origin) return callback(null, true);
+      const allowed = allowedOrigins.some((pattern) =>
+        pattern.startsWith('*.')
+          ? origin.endsWith(pattern.slice(1))
+          : origin === pattern,
+      );
+      callback(allowed ? null : new Error(`Origin ${origin} not allowed`), allowed);
+    },
     credentials: true,
   });
 
