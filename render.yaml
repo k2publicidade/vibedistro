@@ -1,0 +1,70 @@
+# Render Blueprint — VibeDistro API
+# Docs: https://render.com/docs/blueprint-spec
+# Uso: Render Dashboard -> New -> Blueprint -> conectar repo k2publicidade/vibedistro
+#
+# NOTA: Worker desligado neste blueprint para usar apenas Free tier.
+# Jobs BullMQ (sync-release, webhook, analytics) não serão processados.
+# Para ativar worker: adicionar service type=worker usando apps/worker/Dockerfile ($7/mês).
+
+services:
+  # -----------------------------------------------------
+  # API — NestJS (HTTP)
+  # -----------------------------------------------------
+  - type: web
+    name: vibedistro-api
+    runtime: docker
+    repo: https://github.com/k2publicidade/vibedistro
+    branch: main
+    dockerfilePath: ./apps/api/Dockerfile
+    dockerContext: .
+    plan: free
+    region: oregon
+    healthCheckPath: /api/v1/health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3001
+      - key: DATABASE_URL
+        sync: false   # user adiciona no dashboard (Supabase session, port 5432)
+      - key: REDIS_URL
+        sync: false   # user adiciona no dashboard (Upstash rediss://)
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 15m
+      - key: JWT_REFRESH_EXPIRES_IN
+        value: 7d
+      - key: ALLOWED_ORIGINS
+        value: https://vibedistro.vercel.app
+      - key: STORAGE_PROVIDER
+        value: r2
+      - key: STORAGE_ENDPOINT
+        sync: false
+      - key: STORAGE_REGION
+        value: auto
+      - key: STORAGE_BUCKET
+        value: vibedistro-assets
+      - key: STORAGE_ACCESS_KEY_ID
+        sync: false
+      - key: STORAGE_SECRET_ACCESS_KEY
+        sync: false
+      - key: STORAGE_PUBLIC_URL
+        sync: false
+      - key: REVELATOR_ENABLED
+        value: "true"
+      - key: REVELATOR_ENVIRONMENT
+        value: sandbox
+      - key: REVELATOR_API_URL
+        value: https://api.revelator.com
+      - key: REVELATOR_PARTNER_API_KEY
+        value: 53ad6a23-5436-4461-a523-0d3b90b82701
+      - key: REVELATOR_PARTNER_USER_ID
+        value: XASKz2yXy8VBFz8Oe8Adlz1Vl3Dt4k
+      - key: REVELATOR_ENTERPRISE_ID
+        value: "893945"
+      - key: REVELATOR_WEBHOOK_SECRET
+        generateValue: true
