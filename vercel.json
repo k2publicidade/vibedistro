@@ -4,11 +4,5 @@
   "installCommand": "cd ../.. && npm install",
   "outputDirectory": ".next",
   "framework": "nextjs",
-  "ignoreCommand": "cd ../.. && npx turbo-ignore @vibedistro/web",
-  "rewrites": [
-    {
-      "source": "/api/v1/:path*",
-      "destination": "https://api.vibedistro.com/api/v1/:path*"
-    }
-  ]
+  "ignoreCommand": "cd ../.. && npx turbo-ignore @vibedistro/web"
 }

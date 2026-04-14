@@ -19,16 +19,13 @@ const config: NextConfig = {
     ],
   },
   async rewrites() {
-    // Proxy /api/v1/* to the NestJS API in development
-    if (process.env.NODE_ENV === 'development') {
-      return [
-        {
-          source: '/api/v1/:path*',
-          destination: `${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'}/api/v1/:path*`,
-        },
-      ];
-    }
-    return [];
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
+    return [
+      {
+        source: '/api/v1/:path*',
+        destination: `${apiUrl}/api/v1/:path*`,
+      },
+    ];
   },
 };
 
