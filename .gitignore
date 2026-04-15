@@ -19,6 +19,8 @@ out/
 .env.sandbox
 .env.staging
 .env.production
+.env.prod
+.env.vercel
 
 # Turbo
 .turbo/
@@ -83,3 +85,4 @@ packages/database/packages/
 
 # Docs (generated)
 docs/
+.vercel
