@@ -2,7 +2,8 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { AssetsService } from './assets.service';
 import { PrismaService } from '../database/prisma.service';
-import { StorageService } from './storage.service';
+import { ProviderRegistryService } from '../integrations/provider-registry.service';
+import { MemoryBufferService } from './memory-buffer.service';
 
 const mockFile = (mimetype: string, size: number): Express.Multer.File => ({
   fieldname: 'file',
@@ -20,7 +21,9 @@ const mockFile = (mimetype: string, size: number): Express.Multer.File => ({
 describe('AssetsService', () => {
   let service: AssetsService;
   let prisma: { asset: { create: jest.Mock; findFirst: jest.Mock; update: jest.Mock } };
-  let storage: { store: jest.Mock; getStream: jest.Mock; delete: jest.Mock };
+  let provider: { uploadAudio: jest.Mock; uploadImage: jest.Mock; environment: string };
+  let providerRegistry: { getDefaultProvider: jest.Mock };
+  let memoryBuffer: { set: jest.Mock; get: jest.Mock; getStream: jest.Mock; delete: jest.Mock };
 
   beforeEach(async () => {
     prisma = {
@@ -31,14 +34,19 @@ describe('AssetsService', () => {
       },
     };
 
-    storage = {
-      store: jest.fn().mockResolvedValue({
-        storageKey: 'tenant-1/audio/abc-123.wav',
-        storageBucket: 'vibedistro-local',
-        storageProvider: 'local',
-        fileSizeBytes: 1024,
-        checksum: 'abc123',
-      }),
+    provider = {
+      environment: 'sandbox',
+      uploadAudio: jest.fn().mockResolvedValue({ fileId: 'rev-audio-1', filename: 'test-track.wav' }),
+      uploadImage: jest.fn().mockResolvedValue({ fileId: 'rev-image-1', filename: 'cover.jpg' }),
+    };
+
+    providerRegistry = {
+      getDefaultProvider: jest.fn().mockReturnValue(provider),
+    };
+
+    memoryBuffer = {
+      set: jest.fn(),
+      get: jest.fn(),
       getStream: jest.fn(),
       delete: jest.fn(),
     };
@@ -47,7 +55,8 @@ describe('AssetsService', () => {
       providers: [
         AssetsService,
         { provide: PrismaService, useValue: prisma },
-        { provide: StorageService, useValue: storage },
+        { provide: ProviderRegistryService, useValue: providerRegistry },
+        { provide: MemoryBufferService, useValue: memoryBuffer },
       ],
     }).compile();
 
@@ -55,26 +64,38 @@ describe('AssetsService', () => {
   });
 
   describe('upload', () => {
-    it('should upload a valid WAV audio file', async () => {
+    it('should upload a valid WAV audio file via Revelator', async () => {
       const file = mockFile('audio/wav', 5 * 1024 * 1024);
       prisma.asset.create.mockResolvedValue({
         id: 'asset-1',
         assetType: 'AUDIO',
         originalFilename: 'test-track.wav',
         mimeType: 'audio/wav',
-        fileSizeBytes: BigInt(1024),
+        fileSizeBytes: BigInt(5 * 1024 * 1024),
         processingStatus: 'COMPLETED',
         createdAt: new Date(),
       });
 
       const result = await service.upload('tenant-1', 'user-1', 'AUDIO', file);
+
       expect(result.id).toBe('asset-1');
-      expect(storage.store).toHaveBeenCalledWith('tenant-1', 'audio', file);
+      expect(provider.uploadAudio).toHaveBeenCalledWith(file.buffer, 'test-track.wav', 'audio/wav');
+      expect(memoryBuffer.set).toHaveBeenCalledWith('asset-1', file.buffer, 'audio/wav', 'test-track.wav');
+      expect(prisma.asset.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            storageKey: 'rev-audio-1',
+            storageProvider: 'revelator',
+            storageBucket: 'revelator-sandbox',
+          }),
+        }),
+      );
     });
 
     it('should reject unsupported audio format', async () => {
       const file = mockFile('audio/ogg', 1024);
       await expect(service.upload('tenant-1', 'user-1', 'AUDIO', file)).rejects.toThrow(BadRequestException);
+      expect(provider.uploadAudio).not.toHaveBeenCalled();
     });
 
     it('should reject audio files over 200MB', async () => {
@@ -87,7 +108,12 @@ describe('AssetsService', () => {
       await expect(service.upload('tenant-1', 'user-1', 'COVER_ART', file)).rejects.toThrow(BadRequestException);
     });
 
-    it('should accept valid JPEG for COVER_ART', async () => {
+    it('should reject DOCUMENT uploads (Revelator has no endpoint)', async () => {
+      const file = mockFile('application/pdf', 1024);
+      await expect(service.upload('tenant-1', 'user-1', 'DOCUMENT', file)).rejects.toThrow(BadRequestException);
+    });
+
+    it('should accept valid JPEG for COVER_ART with cover=true', async () => {
       const file = mockFile('image/jpeg', 2 * 1024 * 1024);
       file.originalname = 'cover.jpg';
       prisma.asset.create.mockResolvedValue({
@@ -101,7 +127,34 @@ describe('AssetsService', () => {
       });
 
       const result = await service.upload('tenant-1', 'user-1', 'COVER_ART', file);
+
       expect(result.id).toBe('asset-2');
+      expect(provider.uploadImage).toHaveBeenCalledWith(file.buffer, 'cover.jpg', 'image/jpeg', true);
+    });
+
+    it('should pass isCover=false for ARTIST_PHOTO', async () => {
+      const file = mockFile('image/png', 1 * 1024 * 1024);
+      file.originalname = 'artist.png';
+      prisma.asset.create.mockResolvedValue({
+        id: 'asset-3',
+        assetType: 'ARTIST_PHOTO',
+        originalFilename: 'artist.png',
+        mimeType: 'image/png',
+        fileSizeBytes: BigInt(1 * 1024 * 1024),
+        processingStatus: 'COMPLETED',
+        createdAt: new Date(),
+      });
+
+      await service.upload('tenant-1', 'user-1', 'ARTIST_PHOTO', file);
+
+      expect(provider.uploadImage).toHaveBeenCalledWith(file.buffer, 'artist.png', 'image/png', false);
+    });
+
+    it('should surface Revelator upload failures as BadRequestException', async () => {
+      const file = mockFile('audio/wav', 1024);
+      provider.uploadAudio.mockRejectedValue(new Error('Revelator 500'));
+      await expect(service.upload('tenant-1', 'user-1', 'AUDIO', file)).rejects.toThrow(BadRequestException);
+      expect(prisma.asset.create).not.toHaveBeenCalled();
     });
   });
 
@@ -112,14 +165,35 @@ describe('AssetsService', () => {
     });
   });
 
+  describe('getFileStream', () => {
+    it('should return stream from memory buffer', async () => {
+      prisma.asset.findFirst.mockResolvedValue({ id: 'asset-1', storageKey: 'rev-1' });
+      memoryBuffer.getStream.mockReturnValue({
+        stream: { pipe: jest.fn() },
+        mimeType: 'audio/wav',
+        filename: 'track.wav',
+      });
+
+      const result = await service.getFileStream('tenant-1', 'asset-1');
+      expect(result.mimeType).toBe('audio/wav');
+      expect(memoryBuffer.getStream).toHaveBeenCalledWith('asset-1');
+    });
+
+    it('should throw when buffer expired', async () => {
+      prisma.asset.findFirst.mockResolvedValue({ id: 'asset-1', storageKey: 'rev-1' });
+      memoryBuffer.getStream.mockReturnValue(null);
+      await expect(service.getFileStream('tenant-1', 'asset-1')).rejects.toThrow(NotFoundException);
+    });
+  });
+
   describe('delete', () => {
-    it('should soft-delete and remove file from storage', async () => {
-      prisma.asset.findFirst.mockResolvedValue({ id: 'asset-1', storageKey: 'key-1' });
+    it('should soft-delete asset and evict memory buffer', async () => {
+      prisma.asset.findFirst.mockResolvedValue({ id: 'asset-1', storageKey: 'rev-1' });
       prisma.asset.update.mockResolvedValue({});
-      storage.delete.mockResolvedValue(undefined);
 
       await service.delete('tenant-1', 'asset-1');
-      expect(storage.delete).toHaveBeenCalledWith('key-1');
+
+      expect(memoryBuffer.delete).toHaveBeenCalledWith('asset-1');
       expect(prisma.asset.update).toHaveBeenCalledWith(
         expect.objectContaining({ data: expect.objectContaining({ deletedAt: expect.any(Date) }) }),
       );

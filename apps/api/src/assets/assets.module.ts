@@ -1,11 +1,13 @@
 import { Module } from '@nestjs/common';
 import { AssetsController } from './assets.controller';
 import { AssetsService } from './assets.service';
-import { StorageService } from './storage.service';
+import { MemoryBufferService } from './memory-buffer.service';
+import { IntegrationsModule } from '../integrations/integrations.module';
 
 @Module({
+  imports: [IntegrationsModule],
   controllers: [AssetsController],
-  providers: [AssetsService, StorageService],
-  exports: [AssetsService, StorageService],
+  providers: [AssetsService, MemoryBufferService],
+  exports: [AssetsService, MemoryBufferService],
 })
 export class AssetsModule {}

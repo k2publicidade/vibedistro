@@ -1,6 +1,8 @@
 import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
+import * as crypto from 'crypto';
 import { PrismaService } from '../database/prisma.service';
-import { StorageService } from './storage.service';
+import { ProviderRegistryService } from '../integrations/provider-registry.service';
+import { MemoryBufferService } from './memory-buffer.service';
 import type { AssetType, AssetProcessingStatus } from '@vibedistro/database';
 
 const ALLOWED_AUDIO_MIMES = [
@@ -37,7 +39,8 @@ export class AssetsService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly storage: StorageService,
+    private readonly providerRegistry: ProviderRegistryService,
+    private readonly memoryBuffer: MemoryBufferService,
   ) {}
 
   async upload(
@@ -61,25 +64,44 @@ export class AssetsService {
       if (file.size > MAX_IMAGE_SIZE) {
         throw new BadRequestException('Imagem excede 20MB.');
       }
+    } else if (assetType === 'DOCUMENT') {
+      throw new BadRequestException('Upload de documentos ainda nao suportado (Revelator nao expoe endpoint).');
     }
 
-    // Store file
-    const stored = await this.storage.store(tenantId, assetType.toLowerCase(), file);
+    const provider = this.providerRegistry.getDefaultProvider();
+    const checksum = crypto.createHash('sha256').update(file.buffer).digest('hex');
 
-    // Create DB record
+    // Stream to Revelator (pass-through). Provider returns the fileId we persist.
+    let fileId: string;
+    try {
+      if (assetType === 'AUDIO') {
+        const ref = await provider.uploadAudio(file.buffer, file.originalname, file.mimetype);
+        fileId = ref.fileId;
+      } else {
+        const isCover = assetType === 'COVER_ART';
+        const ref = await provider.uploadImage(file.buffer, file.originalname, file.mimetype, isCover);
+        fileId = ref.fileId;
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      this.logger.error(`Revelator upload failed (${assetType}, ${file.originalname}): ${message}`);
+      throw new BadRequestException(`Falha no upload ao Revelator: ${message}`);
+    }
+
+    // Create DB record — storageKey is the Revelator fileId
     const asset = await this.prisma.asset.create({
       data: {
         tenantId,
         uploadedById: userId,
         assetType: assetType as AssetType,
         processingStatus: 'COMPLETED' as AssetProcessingStatus,
-        storageKey: stored.storageKey,
-        storageProvider: stored.storageProvider,
-        storageBucket: stored.storageBucket,
+        storageKey: fileId,
+        storageProvider: 'revelator',
+        storageBucket: `revelator-${provider.environment}`,
         originalFilename: file.originalname,
         mimeType: file.mimetype,
-        fileSizeBytes: BigInt(stored.fileSizeBytes),
-        checksum: stored.checksum,
+        fileSizeBytes: BigInt(file.size),
+        checksum,
         audioFormat: assetType === 'AUDIO' ? detectAudioFormat(file.mimetype) as any : null,
         imageFormat: (assetType === 'COVER_ART' || assetType === 'ARTIST_PHOTO')
           ? detectImageFormat(file.mimetype) as any : null,
@@ -87,7 +109,11 @@ export class AssetsService {
       },
     });
 
-    this.logger.log(`Asset uploaded: ${asset.id} (${assetType}, ${file.originalname}, ${file.size} bytes)`);
+    // Hold a short-lived copy in memory so the wizard can render preview/thumbnail.
+    // Revelator does not publicly document a GET endpoint — this is the preview window.
+    this.memoryBuffer.set(asset.id, file.buffer, file.mimetype, file.originalname);
+
+    this.logger.log(`Asset uploaded: ${asset.id} → revelator fileId=${fileId} (${assetType}, ${file.originalname}, ${file.size}B)`);
 
     return {
       id: asset.id,
@@ -116,8 +142,18 @@ export class AssetsService {
       where: { id, tenantId, deletedAt: null },
     });
     if (!asset) throw new NotFoundException('Asset nao encontrado');
-    const stream = await this.storage.getStream(asset.storageKey);
-    return { stream, mimeType: asset.mimeType, filename: asset.originalFilename };
+
+    const cached = this.memoryBuffer.getStream(asset.id);
+    if (!cached) {
+      throw new NotFoundException(
+        'Preview expirou (30min). O arquivo ja foi enviado ao Revelator e nao pode ser baixado de volta.',
+      );
+    }
+    return {
+      stream: cached.stream,
+      mimeType: cached.mimeType,
+      filename: cached.filename,
+    };
   }
 
   async delete(tenantId: string, id: string) {
@@ -126,7 +162,9 @@ export class AssetsService {
     });
     if (!asset) throw new NotFoundException('Asset nao encontrado');
 
-    await this.storage.delete(asset.storageKey);
+    // Drop the preview buffer; the file stays in Revelator (they don't document a delete endpoint).
+    this.memoryBuffer.delete(id);
+
     await this.prisma.asset.update({
       where: { id },
       data: { deletedAt: new Date() },

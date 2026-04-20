@@ -13,6 +13,7 @@ import type {
   StatementQueryDTO,
   StatementResultDTO,
   InternalWebhookEventDTO,
+  UploadedAssetRef,
 } from '../provider.interface';
 import { RevelatorAuthClient } from './auth.client';
 import { RevelatorAdapter } from './adapter';
@@ -186,6 +187,76 @@ export class RevelatorProvider implements DistributionProvider {
     const item = data.items?.[0] as Record<string, unknown> | undefined;
 
     return this.adapter.fromRevelatorDistributionStatus(item);
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // MEDIA UPLOAD (pass-through)
+  // ─────────────────────────────────────────────────────────────
+
+  /**
+   * Upload audio file to Revelator.
+   * POST /media/audio/upload (or /upload/wav, /upload/flac by mime)
+   * Returns { fileId, filename } referenced in track payloads.
+   */
+  async uploadAudio(
+    buffer: Buffer,
+    filename: string,
+    mimeType: string,
+  ): Promise<UploadedAssetRef> {
+    const endpoint = mimeType.includes('flac')
+      ? '/media/audio/upload/flac'
+      : mimeType.includes('wav')
+      ? '/media/audio/upload/wav'
+      : '/media/audio/upload';
+
+    const form = new FormData();
+    form.append('file', new Blob([buffer], { type: mimeType }), filename);
+
+    const response = await this.http.post(endpoint, form, {
+      headers: { 'Content-Type': undefined as unknown as string },
+      maxContentLength: Infinity,
+      maxBodyLength: Infinity,
+      timeout: 10 * 60 * 1000, // 10min for WAV masters
+    });
+
+    const data = response.data as { fileId?: string; filename?: string };
+    if (!data.fileId) {
+      throw new Error(`[Revelator] ${endpoint} returned no fileId`);
+    }
+    return { fileId: data.fileId, filename: data.filename ?? filename };
+  }
+
+  /**
+   * Upload image (cover art / artist photo) to Revelator.
+   * POST /media/image/upload?cover=true
+   * Response is a bare string (the fileId) per the public spec.
+   */
+  async uploadImage(
+    buffer: Buffer,
+    filename: string,
+    mimeType: string,
+    isCover: boolean = true,
+  ): Promise<UploadedAssetRef> {
+    const form = new FormData();
+    form.append('file', new Blob([buffer], { type: mimeType }), filename);
+
+    const response = await this.http.post('/media/image/upload', form, {
+      headers: { 'Content-Type': undefined as unknown as string },
+      params: { cover: isCover },
+      maxContentLength: Infinity,
+      maxBodyLength: Infinity,
+      timeout: 2 * 60 * 1000,
+    });
+
+    const fileId =
+      typeof response.data === 'string'
+        ? response.data.replace(/^"|"$/g, '')
+        : (response.data as { fileId?: string })?.fileId;
+
+    if (!fileId) {
+      throw new Error('[Revelator] /media/image/upload returned no fileId');
+    }
+    return { fileId, filename };
   }
 
   // ─────────────────────────────────────────────────────────────

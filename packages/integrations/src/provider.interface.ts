@@ -71,6 +71,11 @@ export interface ExternalReleaseRef {
   provider?: string;
 }
 
+export interface UploadedAssetRef {
+  fileId: string;
+  filename: string;
+}
+
 export interface ExternalStatusDTO {
   externalId: string;
   status: string;
@@ -144,6 +149,10 @@ export interface DistributionProvider {
   updateRelease(externalId: string, dto: Partial<InternalReleaseDTO>): Promise<void>;
   takedownRelease(externalId: string, reason?: string): Promise<void>;
   getReleaseStatus(externalId: string): Promise<ExternalStatusDTO>;
+
+  // Media pass-through
+  uploadAudio(buffer: Buffer, filename: string, mimeType: string): Promise<UploadedAssetRef>;
+  uploadImage(buffer: Buffer, filename: string, mimeType: string, isCover?: boolean): Promise<UploadedAssetRef>;
 
   // Analytics
   getAnalytics(params: AnalyticsQueryDTO): Promise<AnalyticsResultDTO>;

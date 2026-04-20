@@ -74,6 +74,11 @@ export class RevelatorAdapter {
       payload['releaseId'] = existingReleaseId;
     }
 
+    // Cover image: coverStorageKey now holds the Revelator fileId (pass-through arch).
+    if (dto.coverStorageKey) {
+      payload['image'] = { fileId: dto.coverStorageKey };
+    }
+
     return payload;
   }
 
