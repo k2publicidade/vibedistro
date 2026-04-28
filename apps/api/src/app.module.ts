@@ -5,6 +5,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { TerminusModule } from '@nestjs/terminus';
 import { DatabaseModule } from './database/database.module';
 import { AuthModule } from './auth/auth.module';
+import { OnboardingModule } from './onboarding/onboarding.module';
 import { TenantsModule } from './tenants/tenants.module';
 import { UsersModule } from './users/users.module';
 import { ArtistsModule } from './artists/artists.module';
@@ -31,6 +32,7 @@ import { TenantGuard } from './auth/guards/tenant.guard';
     TerminusModule,
     DatabaseModule,
     AuthModule,
+    OnboardingModule,
     TenantsModule,
     UsersModule,
     ArtistsModule,

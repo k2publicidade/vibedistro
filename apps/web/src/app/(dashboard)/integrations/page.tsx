@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { toast } from 'sonner';
 import {
   CheckCircle,
   XCircle,
@@ -27,6 +28,7 @@ import {
   useExternalMappings,
   useTriggerSync,
   useRetryWebhook,
+  useCreateRevelatorAuthorizeUrl,
 } from '@/lib/hooks/use-integrations';
 
 // ---- Helpers ----
@@ -76,6 +78,7 @@ export default function IntegrationsPage() {
   const mappings = useExternalMappings({ page: mappingPage, perPage: 10 });
   const triggerSync = useTriggerSync();
   const retryWebhook = useRetryWebhook();
+  const createAuthorizeUrl = useCreateRevelatorAuthorizeUrl();
 
   const statusData = status.data;
   const healthData = health.data;
@@ -86,6 +89,19 @@ export default function IntegrationsPage() {
   const mappingsMeta = mappings.data?.meta;
 
   const isConnected = statusData?.connected ?? false;
+
+  async function handleOpenRevelator() {
+    try {
+      const result = await createAuthorizeUrl.mutateAsync({});
+      window.location.href = result.url;
+    } catch (err) {
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : 'Erro ao abrir Revelator',
+      );
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -165,18 +181,31 @@ export default function IntegrationsPage() {
               </div>
             </div>
 
-            <Button
-              size="sm"
-              variant="outline"
-              className="gap-1.5"
-              disabled={triggerSync.isPending}
-              onClick={() => triggerSync.mutate('full')}
-            >
-              <RefreshCw
-                className={cn('h-3.5 w-3.5', triggerSync.isPending && 'animate-spin')}
-              />
-              Sync Completo
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                className="gap-1.5"
+                disabled={!isConnected || createAuthorizeUrl.isPending}
+                onClick={handleOpenRevelator}
+              >
+                <ExternalLink className="h-3.5 w-3.5" />
+                Abrir Revelator
+              </Button>
+
+              <Button
+                size="sm"
+                variant="outline"
+                className="gap-1.5"
+                disabled={triggerSync.isPending}
+                onClick={() => triggerSync.mutate('full')}
+              >
+                <RefreshCw
+                  className={cn('h-3.5 w-3.5', triggerSync.isPending && 'animate-spin')}
+                />
+                Sync Completo
+              </Button>
+            </div>
           </div>
         )}
       </div>

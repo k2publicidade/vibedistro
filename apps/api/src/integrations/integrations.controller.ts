@@ -1,9 +1,10 @@
-import { Controller, Get, Post, Param, Query } from '@nestjs/common';
+import { Body, Controller, Get, Post, Param, Query } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { IntegrationsService } from './integrations.service';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
 import type { SessionUser } from '@vibedistro/types';
+import { RevelatorAuthorizeUrlDto } from '../onboarding/dto/revelator-authorize-url.dto';
 
 @ApiTags('integrations')
 @ApiBearerAuth()
@@ -51,5 +52,15 @@ export class IntegrationsController {
   @ApiOperation({ summary: 'List external ID mappings' })
   mappings(@CurrentUser() user: SessionUser, @Query() query: any) {
     return this.integrations.listExternalMappings(user.tenantId, query);
+  }
+
+  @Post('revelator/authorize-url')
+  @RequirePermissions('integration:read:tenant')
+  @ApiOperation({ summary: 'Create Revelator white-label authorize URL' })
+  createRevelatorAuthorizeUrl(
+    @CurrentUser() user: SessionUser,
+    @Body() dto: RevelatorAuthorizeUrlDto,
+  ) {
+    return this.integrations.createRevelatorAuthorizeUrl(user.tenantId, dto.redirectUrl);
   }
 }
