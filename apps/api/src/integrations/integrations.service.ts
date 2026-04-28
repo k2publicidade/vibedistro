@@ -1,12 +1,14 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
 import { ProviderRegistryService } from './provider-registry.service';
+import { RevelatorAccountService } from '../onboarding/revelator-account.service';
 
 @Injectable()
 export class IntegrationsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly providerRegistry: ProviderRegistryService,
+    private readonly revelatorAccount: RevelatorAccountService,
   ) {}
 
   async getHealth(tenantId: string) {
@@ -109,5 +111,23 @@ export class IntegrationsService {
       data,
       meta: { total, page, perPage, totalPages: Math.ceil(total / perPage) },
     };
+  }
+
+  async createRevelatorAuthorizeUrl(tenantId: string, redirectUrl?: string) {
+    const connection = await this.prisma.integrationConnection.findFirst({
+      where: { tenantId, provider: 'revelator', enabled: true },
+      orderBy: { updatedAt: 'desc' },
+    });
+
+    if (!connection) throw new NotFoundException('Revelator connection not found');
+
+    const config = (connection.config ?? {}) as Record<string, unknown>;
+    const partnerUserId = config['partnerUserId'];
+    if (typeof partnerUserId !== 'string' || !partnerUserId) {
+      throw new BadRequestException('Revelator partner user is not configured');
+    }
+
+    const url = await this.revelatorAccount.createAuthorizeUrl({ partnerUserId, redirectUrl });
+    return { url };
   }
 }

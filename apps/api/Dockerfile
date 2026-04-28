@@ -42,8 +42,8 @@ COPY --from=builder /app/package.json ./
 COPY --from=prisma /app/packages/database/prisma ./packages/database/prisma
 COPY --from=prisma /app/packages/database/src/generated ./packages/database/src/generated
 
-WORKDIR /app/apps/api
+WORKDIR /app
 USER nestjs
 EXPOSE 3001
 
-CMD ["node", "dist/apps/api/src/main.js"]
+CMD ["sh", "-c", "npx -w packages/database prisma migrate deploy && npm -w packages/database run db:seed && node apps/api/dist/apps/api/src/main.js"]

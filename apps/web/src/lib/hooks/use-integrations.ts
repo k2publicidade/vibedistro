@@ -42,6 +42,14 @@ export interface MappingsParams extends PaginationParams {
   syncStatus?: SyncStatus;
 }
 
+export interface RevelatorAuthorizeUrlPayload {
+  redirectUrl?: string;
+}
+
+export interface RevelatorAuthorizeUrlResult {
+  url: string;
+}
+
 // ---- Queries ----
 
 export function useIntegrationStatus(
@@ -167,5 +175,16 @@ export function useTriggerSync() {
       });
       qc.invalidateQueries({ queryKey: integrationKeys.status() });
     },
+  });
+}
+
+export function useCreateRevelatorAuthorizeUrl() {
+  return useMutation({
+    mutationFn: (payload: RevelatorAuthorizeUrlPayload = {}) =>
+      apiClient.post<RevelatorAuthorizeUrlResult>(
+        '/integrations/revelator/authorize-url',
+        payload,
+        getToken(),
+      ),
   });
 }

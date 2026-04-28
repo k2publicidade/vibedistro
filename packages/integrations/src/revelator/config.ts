@@ -19,6 +19,8 @@ export interface RevelatorConfig {
   retryDelayMs: number;
   /** Flag para habilitar/desabilitar integração sem precisar remover configurações */
   enabled: boolean;
+  /** White-label Revelator v2 URL used for browser authorize redirects */
+  whiteLabelUrl?: string;
 }
 
 export function createRevelatorConfig(env: NodeJS.ProcessEnv = process.env): RevelatorConfig {
@@ -37,5 +39,6 @@ export function createRevelatorConfig(env: NodeJS.ProcessEnv = process.env): Rev
     maxRetries: Number(env['REVELATOR_MAX_RETRIES'] ?? 3),
     retryDelayMs: Number(env['REVELATOR_RETRY_DELAY_MS'] ?? 1_000),
     enabled: env['REVELATOR_ENABLED'] === 'true',
+    whiteLabelUrl: env['REVELATOR_WHITE_LABEL_URL'],
   };
 }
